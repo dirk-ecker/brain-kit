@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { VAULT, condense, rohZiel } = require('./sitzung-lib');
+const { VAULT, condense, rohZiel, istAusgenommen } = require('./sitzung-lib');
 
 const LOG = path.join(VAULT, '_meta', 'logs', 'automation.log.jsonl');
 const QUELLE = path.join(os.homedir(), '.claude', 'projects');
@@ -39,7 +39,7 @@ function main() {
   catch { console.log(`Kein Sitzungsordner gefunden: ${QUELLE}`); return; }
 
   const lauf = new Date().toISOString();
-  const stat = { geschrieben: 0, vorhanden: 0, zuKurz: 0, unlesbar: 0 };
+  const stat = { geschrieben: 0, vorhanden: 0, zuKurz: 0, unlesbar: 0, ausgenommen: 0 };
   const jeProjekt = {};
   for (const o of ordner) {
     const dateien = fs.readdirSync(path.join(QUELLE, o)).filter(f => f.endsWith('.jsonl'));
@@ -47,6 +47,7 @@ function main() {
       const id = f.replace(/\.jsonl$/, '');
       const c = condense(path.join(QUELLE, o, f), id);
       if (!c) { stat.unlesbar++; continue; }
+      if (istAusgenommen(c.cwd)) { stat.ausgenommen++; continue; } // private/.claude: nichts im Vault ablegen
       if (c.users < 2) { stat.zuKurz++; continue; }
       const { projekt, dir, name } = rohZiel(c);
       if (nurProjekt && projekt !== nurProjekt) continue;
@@ -65,7 +66,7 @@ function main() {
 
   console.log(ausfuehren ? 'Geschrieben:' : 'Probelauf (mit --ausfuehren schreiben):');
   for (const [p, z] of Object.entries(jeProjekt).sort()) console.log(`  ${p}: ${z.neu} neu, ${z.vorhanden} schon vorhanden`);
-  console.log(`Summe: ${stat.geschrieben} neu, ${stat.vorhanden} vorhanden, ${stat.zuKurz} zu kurz, ${stat.unlesbar} unlesbar`);
+  console.log(`Summe: ${stat.geschrieben} neu, ${stat.vorhanden} vorhanden, ${stat.zuKurz} zu kurz, ${stat.unlesbar} unlesbar, ${stat.ausgenommen} ausgenommen`);
   log('extrahieren_lauf', { lauf, ausgefuehrt: ausfuehren, projekt: nurProjekt, ...stat });
 }
 

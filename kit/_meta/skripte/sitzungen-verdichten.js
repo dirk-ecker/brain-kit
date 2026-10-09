@@ -219,8 +219,19 @@ function laufStand(daten) {
 }
 
 // Nacharbeiten: Sitzungsübersichten, Prüfung, Kurationsfälligkeit, Arbeitsweise-Review und Archivierung (jedes mit eigener Sperre bzw. Takt).
+// Je Sitzung entstehen kleine Marker (Stop-Erinnerung, gelieferte Prompt-Treffer). Nach 14 Tagen sind sie wertlos.
+function markerAufraeumen(tage = 14) {
+  const grenze = Date.now() - tage * 86400000;
+  for (const d of ['stop-erinnert', 'prompt-treffer']) {
+    const dir = path.join(VAULT, '_meta', 'state', d);
+    let dateien = []; try { dateien = fs.readdirSync(dir); } catch { continue; }
+    for (const f of dateien) { try { const p = path.join(dir, f); if (fs.statSync(p).mtimeMs < grenze) fs.unlinkSync(p); } catch { /* gerade in Benutzung */ } }
+  }
+}
+
 function nacharbeiten() {
   logRotieren();
+  markerAufraeumen();
   try { alteRohLoeschen(cfg.rohAufbewahrungTage); } catch (e) { log('roh_loeschen_fehler', { meldung: String(e && e.message || e) }); }
   const skripte = [['sitzungen-index.js'], ['vault-pruefung.js'], ['sync-projekte.js'], ['arbeitsweise-review.js'], ['vault-archiv.js', '--ausfuehren']];
   for (const [s, ...a] of skripte) spawnSync(process.execPath, [path.join(__dirname, s), ...a], { stdio: 'ignore', windowsHide: true });

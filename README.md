@@ -1,87 +1,72 @@
 # Brain-Kit
 
-Ein Wissens-Vault („Brain“) für Claude Code: Claude hält Entscheidungen, Erkenntnisse und offene Punkte aus allen deinen Projekten als Markdown-Notizen fest, findet sie bei der nächsten Aufgabe wieder und verdichtet ältere Sitzungen automatisch. Der Vault ist ein normaler Ordner (auch in Obsidian lesbar). Dieses Repo enthält nur das **Werkzeug**, keine Inhalte.
+Ein Wissens-Vault („Brain“) für Claude Code. Claude hält Entscheidungen, Erkenntnisse und offene Punkte aus allen deinen Projekten als Markdown-Notizen fest, findet sie bei der nächsten Aufgabe wieder und verdichtet ältere Sitzungen automatisch. Der Vault ist ein normaler Ordner und lässt sich auch in Obsidian lesen. Dieses Repo enthält nur das **Werkzeug**, keine Inhalte.
 
-> Stand: Version 0.1.0, **nur Windows**, **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster). Privates Repo, keine Lizenz hinterlegt.
+> Version 0.1.0 · **nur Windows** · **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster) · privates Repo, keine Lizenz hinterlegt
 
-## Was es tut
+## Wozu
 
-| Baustein | Wirkung |
-|---|---|
-| **SessionStart-Hook** | lädt je Projekt die kleine `_index.md` und die Titel offener Punkte; meldet ausgebliebene Verdichtung, Hook-Fehler und Prüfbefunde |
-| **Prompt-Hook** | liefert zu einem Prompt die ein bis zwei sicheren Vault-Treffer mit; erinnert bei Korrekturen („immer“, „ich hatte gesagt“) ans sofortige Festhalten |
-| **Stop-Hook** | mahnt höchstens einmal je Sitzung, wenn mehrere Projektdateien geändert, aber nichts im Vault festgehalten wurde |
-| **SessionEnd-Hook** | sichert jede Sitzung verdichtet und geschwärzt als Rohdatei unter `projekte/<projekt>/generiert/sitzungen-roh/` |
-| **Verdichtungslauf** | täglich (Windows-Aufgabe): eine unbeaufsichtigte Claude-Instanz macht aus Rohsitzungen Sitzungsnotizen, Entscheidungen und Erkenntnisse |
-| **Wartung** | Vault-Prüfung (Links, Kopf, Herkunft, Geheimnis-Verdacht, Indexgröße), Sync der Repo-Commits, Archivierung, wöchentlicher Arbeitsweise-Review |
-| **`vault-suche.js`** | gezielte Suche mit Typ, Status, Themen, Ersetzungsketten |
+Ohne Brain beginnt jede Claude-Sitzung ohne Gedächtnis: Entscheidungen müssen neu erklärt, Vorgaben wiederholt, Fehlannahmen neu entdeckt werden. Mit dem Brain
 
-Welche Regeln Claude beim Festhalten befolgt, steht in `CLAUDE-baustein.md` (landet in deiner globalen `CLAUDE.md`) und im Vault unter `_meta/konventionen.md`.
+- erfährt Claude zu Beginn einer Sitzung den Stand des Projekts und bekommt zu einem Thema die passenden früheren Entscheidungen mitgeliefert,
+- werden Entscheidungen samt Begründung und verworfenen Alternativen sofort festgehalten, ohne dass du etwas von Hand pflegst,
+- wird alles, was in einer Sitzung durchrutscht, nachträglich aus dem Verlauf verdichtet,
+- bleibt jede Änderung nachvollziehbar (Git) und der Vault geprüft (Links, Pflichtangaben, Verdacht auf Geheimnisse).
 
-## Voraussetzungen
-
-- Windows 10/11, **Node.js ≥ 20**, **Git** im PATH
-- **Claude Code** (CLI, angemeldet). Der Verdichtungslauf startet `claude -p` und verbraucht Token bzw. Kontingent
-- optional [Obsidian](https://obsidian.md) zum Lesen
-
-## Installation
+## Schnellstart
 
 ```powershell
 git clone https://github.com/<konto>/brain-kit
 cd brain-kit
-node installieren.js --trocken                 # zeigt nur, was passieren würde
+node installieren.js --trocken                 # nur anzeigen, was passieren würde
 node installieren.js --vault C:/Users/ich/brain --projekte C:/Users/ich/Documents/projects
-node installieren.js --pruefen --vault C:/Users/ich/brain   # Diagnose
+node installieren.js --pruefen --vault C:/Users/ich/brain
 ```
 
-Der Installer
+Dann Claude Code neu starten, in einem Projekt unter dem Projekte-Ordner arbeiten, und nach einigen Sitzungen den Verdichtungslauf einrichten (`--aufgabe`). Der Weg im Detail: [Erste Schritte](docs/ERSTE-SCHRITTE.md).
 
-1. kopiert Skripte, Vorlagen, Konventionen und Auftrag in `<vault>/_meta/` und legt Ordner, `brain.config.json` und ein lokales Git-Repo an,
-2. trägt die vier Hooks in `~/.claude/settings.json` ein (fremde Hooks bleiben, die alte Datei wird als `.brain-sicherung-<zeit>` gesichert),
-3. ergänzt `~/.claude/CLAUDE.md` um die Arbeitsanweisung (zwischen `<!-- brain:start -->` und `<!-- brain:end -->`),
-4. richtet **auf Wunsch** (`--aufgabe`) die tägliche Windows-Aufgabe ein. Ohne die Aufgabe sammelt das Brain nur Rohsitzungen, verdichtet wird dann von Hand: `node <vault>/_meta/skripte/sitzungen-verdichten.js --ausfuehren`.
+**Voraussetzungen:** Windows 10/11, Node.js ≥ 20, Git im PATH, Claude Code (CLI, angemeldet). Optional Obsidian zum Lesen.
 
-Er ist idempotent: ein zweiter Lauf ändert nichts Bestehendes. Ab der nächsten Claude-Code-Sitzung ist das Brain aktiv. `--ohne-hooks` und `--ohne-claude-md` lassen die jeweiligen Dateien unangetastet.
+## Was der Installer tut
 
-**Update:** Kit neu holen, `node installieren.js` mit denselben Parametern. Skripte, Vorlagen, Konventionen und Auftrag werden ersetzt (die alte Fassung bleibt als `.bak`). `brain.config.json` und alle Notizen werden nie angefasst. Eigene Änderungen an Kit-Dateien gehen sonst verloren: besser im Kit ändern.
+1. kopiert Skripte, Vorlagen, Konventionen und Auftrag nach `<vault>/_meta/` und legt Ordner, `brain.config.json` und ein lokales Git-Repo an,
+2. trägt die vier Hooks in `~/.claude/settings.json` ein (fremde Hooks bleiben),
+3. ergänzt `~/.claude/CLAUDE.md` um die Arbeitsanweisung (Block zwischen `<!-- brain:start … -->` und `<!-- brain:end -->`),
+4. richtet **nur auf Wunsch** (`--aufgabe`) die tägliche Windows-Aufgabe ein.
 
-**Deinstallation:** `node installieren.js --deinstallieren --vault <vault>` entfernt Hooks und CLAUDE.md-Block. Der Vault bleibt. Aufgabe: `Unregister-ScheduledTask -TaskName 'Brain-Sitzungen-verdichten' -Confirm:$false`.
+Er ist idempotent und sichert beide Dateien vorher (`.brain-sicherung-<zeit>`). `--ohne-hooks`, `--ohne-claude-md`, `--trocken`, `--pruefen` und `--deinstallieren` gibt es auch. **Update:** Kit neu holen, `node installieren.js` mit denselben Parametern: Kit-Dateien im Vault werden ersetzt (alte Fassung als `.bak`), Konfiguration und Notizen nie.
+
+## Dokumentation
+
+| Dokument | Inhalt |
+|---|---|
+| [Erste Schritte](docs/ERSTE-SCHRITTE.md) | Installation bis zur ersten verdichteten Sitzung, Schritt für Schritt |
+| [Funktionsweise](docs/FUNKTIONSWEISE.md) | Datenfluss, Hooks, Vault-Aufbau, Verdichtungslauf, Skripte, Sicherheits- und Parallelitätsmodell |
+| [Betrieb](docs/BETRIEB.md) | Konfiguration, Kosten, Zustand und Logs, Fehlersuche, Wartung |
+| [Entwicklung](docs/ENTWICKLUNG.md) | Arbeitsweise am Kit: Export aus dem Vault, Tests, CI, typische Änderungen |
+| `CLAUDE-baustein.md` | die Arbeitsanweisung, die in die globale `CLAUDE.md` übernommen wird |
+
+Die Regeln für Notizen (Kopf, Typen, Entscheidungsketten, Archiv) stehen nach der Installation in `<vault>/_meta/konventionen.md`.
 
 ## Wichtig zu wissen
 
-**Datenschutz.** Die Rohsitzungen enthalten den Gesprächsverlauf (Nutzereingaben, Antworten, Befehlszeilen). Vor dem Speichern werden Geheimnisse (Tokens, Schlüssel), E-Mail-Adressen, Telefonnummern und Anschriften regelbasiert geschwärzt. **Das ist keine Garantie.** Der Vault gehört nicht unbesehen in ein öffentliches Repo; die Prüfung meldet Verdacht auf Geheimnisse in Notizen (`_meta/generiert/vault-pruefung.md`). Ordner, die nie erfasst werden sollen, stehen in `brain.config.json` unter `ausgenommen` (Standard: `private`, `.claude`).
+**Datenschutz.** Die Rohsitzungen enthalten den Gesprächsverlauf (Nutzereingaben, Antworten, Befehlszeilen). Vor dem Speichern werden Geheimnisse, E-Mail-Adressen, Telefonnummern und Anschriften regelbasiert geschwärzt, **das ist keine Garantie**. Ordner, von denen nie etwas erfasst werden soll, stehen in `brain.config.json` unter `ausgenommen` (Standard `private` und `.claude`). Der Vault gehört nicht unbesehen in ein öffentliches Repo; die Prüfung meldet Verdacht auf Geheimnisse in Notizen.
 
-**Kosten.** Jeder Verdichtungs-Batch (4 Sitzungen) startet eine Claude-Instanz. Erfahrungswerte: etwa 0,2 bis 0,8 USD je Batch, ein leerer Aufruf allein etwa 0,12 USD. Standard: Modell `sonnet`, höchstens 12 Sitzungen je Lauf, 1,50 USD Limit je Batch (`brain.config.json`, Abschnitt `verdichten`). Bei Abrechnung über Extra Usage ist das echtes Geld.
+**Kosten.** Nur der Verdichtungslauf verbraucht Token: je Batch (4 Sitzungen) eine Claude-Instanz, nach Erfahrung etwa 0,2 bis 0,8 USD, ein leerer Aufruf allein etwa 0,12 USD. Standard: Modell `sonnet`, höchstens 12 Sitzungen je Lauf, 1,50 USD Limit je Batch. Bei Abrechnung über Extra Usage ist das echtes Geld. Stellschrauben: [Betrieb](docs/BETRIEB.md).
 
-**Unbeaufsichtigtes Schreiben.** Die Instanz darf lesen, Notizen anlegen und bearbeiten und nur `vault-suche.js` und `vault-pruefung.js` ausführen; `_meta/` und `generiert/` sind für sie gesperrt. Das Skript prüft nach jedem Batch, ob jede Sitzung eine Notiz hat und geschützte Dateien unverändert sind, und kennzeichnet neue Notizen mit `erzeugt: automatisch`. Der Vault ist ein lokales Git-Repo; der Lauf committet vor und nach sich selbst, jede Änderung ist mit `git log`/`git restore` umkehrbar. **Ein Remote ist nicht eingerichtet:** ohne Backup außerhalb des Rechners ist der Vault bei Datenträgerverlust weg.
+**Unbeaufsichtigtes Schreiben.** Die Instanz darf Notizen lesen, anlegen und bearbeiten und nur `vault-suche.js` und `vault-pruefung.js` ausführen; `_meta/` und `generiert/` sind für sie gesperrt. Nach jedem Batch prüft das Skript das Ergebnis, kennzeichnet neue Notizen mit `erzeugt: automatisch` und committet vor und nach dem Lauf: jede Änderung ist mit `git log` und `git restore` umkehrbar. **Ein Remote für den Vault ist nicht eingerichtet:** ohne Kopie außerhalb des Rechners ist er bei Datenträgerverlust weg.
 
-**Parallele Sitzungen** sind unterstützt: Sperren und atomares Schreiben für gemeinsame Dateien, Sitzungs-ID in Rohdatei und Stop-Marker, Notizen nur neu anlegen oder per Edit ändern. Läufe der Automatisierung setzen `BRAIN_AUTOMATION=1`; die Hooks tun dann nichts.
+**Parallele Sitzungen** sind unterstützt (Sperren, atomares Schreiben, Sitzungs-ID in Rohdatei und Marker). Läufe der Automatisierung setzen `BRAIN_AUTOMATION=1`, dann tun die Hooks nichts.
 
-**Grenzen.** Nur Windows (Aufgabenplanung, Claude-Pfad `~/.local/bin/claude.exe`). Deutsch. Die Treffer im Prompt-Hook sind eine Heuristik (Stichwörter im Titel/Thema), sie irren sich gelegentlich: bei zu viel Rauschen `MIN_SCORE` in `prompt-treffer.js` anheben.
+**Grenzen.** Nur Windows (Aufgabenplanung, Claude-Pfad), nur deutsch. Die Vault-Treffer im Prompt sind eine Heuristik und irren sich gelegentlich. Der echte Verdichtungslauf ist nicht Teil der automatischen Tests.
 
-## Betrieb
-
-- Logs und Zustand: `<vault>/_meta/logs/automation.log.jsonl`, `<vault>/_meta/state/` (nicht im Git)
-- Prüfbericht: `<vault>/_meta/generiert/vault-pruefung.md`
-- Start-Hook meldet: Verdichtung seit 3 Tagen ausgeblieben oder fehlerhaft, Hook-Fehler, Prüfbefunde, neuer Review
-- Skripte und ihre Optionen: Kopf der jeweiligen Datei und `<vault>/_meta/konventionen.md`
-
-## Aufbau dieses Repos
+## Inhalt dieses Repos
 
 ```
-installieren.js       Installer, Diagnose, Deinstallation
-CLAUDE-baustein.md    Arbeitsanweisung für die globale CLAUDE.md (Platzhalter {{VAULT}})
-kit/                  was in den Vault kopiert wird (_meta/skripte, vorlagen, konventionen, auftrag, Konfigurationsvorlage)
-tests/                Integrationstests im Temp-Vault (node --test)
-VERSION               Kit-Version
+installieren.js     Installer, Diagnose, Deinstallation
+CLAUDE-baustein.md  Arbeitsanweisung für die globale CLAUDE.md (Platzhalter {{VAULT}})
+kit/                was in den Vault kopiert wird (Schnappschuss, nicht von Hand ändern)
+docs/               Dokumentation
+tests/              Integrationstests (node --test)
+VERSION             Kit-Version
 ```
-
-`kit/` ist ein Schnappschuss des Entwicklungs-Vaults und wird von dort per `kit-exportieren.js` erzeugt (feste Positivliste, Scan auf persönliche Spuren). Nicht von Hand ändern, sondern im Entwicklungs-Vault ändern und neu exportieren.
-
-## Tests
-
-```powershell
-node --test
-```
-
-Die Tests installieren in einen Temp-Ordner (eigene Einstellungen, eigener Vault) und rühren nichts Echtes an. Der Verdichtungslauf selbst (echter Claude-Aufruf) ist nicht Teil der Tests, nur sein Probelauf.

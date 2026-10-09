@@ -134,6 +134,23 @@ function verlauf(env, projekt, edits = 0) {
   return { datei: vor(datei), cwd };
 }
 
+test('Sitzungen in ausgenommenen Ordnern (private, .claude) landen nie im Vault', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    for (const ordner of ['private', '.claude']) {
+      const v = verlauf(env, ordner);
+      const r = hook(env, 'end', { cwd: v.cwd, session_id: `ausgenom-${ordner.length}`, transcript_path: v.datei });
+      assert.equal(r.status, 0, r.stderr);
+    }
+    const alleDateien = [];
+    (function lauf(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== '.git') lauf(p); } else alleDateien.push(p); } })(env.vault);
+    assert.deepEqual(alleDateien.filter(f => /sitzungen-roh/.test(f)), [], 'keine Rohdatei');
+    const log = fs.readFileSync(path.join(env.vault, '_meta', 'logs', 'automation.log.jsonl'), 'utf8');
+    assert.equal((log.match(/"grund":"ausgenommen"/g) || []).length, 2);
+  } finally { aufraeumen(env); }
+});
+
 test('Stop-Hook mahnt ab drei Projektdateien genau einmal je Sitzung', () => {
   const env = umgebung();
   try {

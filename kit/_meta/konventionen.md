@@ -77,6 +77,7 @@ Zweifelsfälle: `entschieden` nur bei belegter Entscheidung oder Vorgabe des Nut
 | `prompt-treffer.js` | Baustein des Prompt-Hooks: zieht Stichwörter aus dem Prompt, ruft `vault-suche.js` auf und liefert höchstens 2 sichere Treffer (Stichwort im Titel/Thema, Score ab 12), je Sitzung höchstens 8 und jede Notiz nur einmal |
 | `sync-projekte.js` | meldet Projekte mit neuen Repo-Commits seit der letzten Kuration (`generiert/kuration-faellig.md`, `projekte/<p>/generiert/repo-stand.md`); `--mark <projekt>` nach erledigter Kuration |
 | `arbeitsweise-review.js` | wertet Korrekturen und Hook-Ereignisse aus (regelbasiert, kostenlos), legt höchstens wöchentlich eine Review-Notiz unter `_global/arbeitsweise-reviews/` an, die der Start-Hook einmal meldet |
+| `kit-exportieren.js` | exportiert das Werkzeug ohne Inhalte nach `brain-kit/kit` (Positivliste, Scan auf persönliche Spuren); danach im Repo brain-kit committen. Nicht Teil des Kits |
 | `sitzung-lib.js` | gemeinsame Bibliothek: Verlauf verdichten, Geheimnisse und Kontaktdaten schwärzen (`redact`), Projektzuordnung, Ablageort, `schreibeAtomar`, `sperre`, `unverarbeiteteRoh` |
 
 Die Skripte finden den Vault relativ zu ihrem Ort (`_meta/skripte` → zwei Ebenen höher) und brauchen nur Node.js.

@@ -21,6 +21,15 @@ function projectOf(cwd) {
   return { dir, vault: vaultName(dir) };
 }
 
+// Ausgenommen: Arbeitsverzeichnis liegt im Projektordner, aber in einem Ordner der Liste "ausgenommen" (Standard private, .claude).
+// Von solchen Sitzungen darf nichts im Vault landen, auch keine geschwärzte Rohdatei.
+function istAusgenommen(cwd) {
+  const c = String(cwd || '').replace(/\\/g, '/'), root = String(PROJECTS).replace(/\\/g, '/').replace(/\/+$/, '') + '/';
+  if (!c.toLowerCase().startsWith(root.toLowerCase())) return false;
+  const dir = c.slice(root.length).split('/')[0];
+  return !!dir && SKIP.has(dir.toLowerCase());
+}
+
 // Zielordner und Dateiname einer Rohsitzung (ein Schema für Hook und Rückwirkend-Import).
 function rohZiel(c, cwd) {
   const p = projectOf(cwd || c.cwd);
@@ -162,4 +171,4 @@ function unverarbeiteteRoh(projektVault) {
 // Erkennt Korrekturen und stehende Vorgaben in Nutzernachrichten (Hook "prompt" und arbeitsweise-review.js).
 const KORREKTUR = /\b(immer|nie|niemals|künftig|ab jetzt|ab sofort|grundsätzlich)\b|ich hatte (doch )?gesagt|ich meinte|ich wollte (das |die |den )?(doch )?nicht|wollte ich nicht|nicht (mehr )?fragen|das habe ich (doch )?(schon )?gesagt|so nicht/i;
 
-module.exports = { condense, redact, findeGeheimnisse, projectOf, rohZiel, schreibeAtomar, sperre, unverarbeiteteRoh, vaultName, KORREKTUR, PROJECTS, VAULT };
+module.exports = { condense, redact, findeGeheimnisse, projectOf, istAusgenommen, rohZiel, schreibeAtomar, sperre, unverarbeiteteRoh, vaultName, KORREKTUR, PROJECTS, VAULT };

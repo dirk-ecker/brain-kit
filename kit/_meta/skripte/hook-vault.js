@@ -16,7 +16,7 @@ if (process.env.BRAIN_AUTOMATION) process.exit(0);
 const fs = require('fs');
 const path = require('path');
 
-const { VAULT, PROJECTS, projectOf, rohZiel, condense, schreibeAtomar, unverarbeiteteRoh, KORREKTUR } = require('./sitzung-lib');
+const { VAULT, PROJECTS, projectOf, rohZiel, condense, schreibeAtomar, unverarbeiteteRoh, KORREKTUR, istAusgenommen } = require('./sitzung-lib');
 const LOG = path.join(VAULT, '_meta', 'logs', 'automation.log.jsonl');
 
 const norm = p => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
@@ -127,7 +127,9 @@ function start(input) {
 function end(input) {
   if (!input.transcript_path) return;
   const id = String(input.session_id || path.basename(input.transcript_path, '.jsonl'));
+  if (istAusgenommen(input.cwd)) { log('sessionend_uebersprungen', { sitzung: id.slice(0, 8), grund: 'ausgenommen' }); return; }
   const c = condense(input.transcript_path, id);
+  if (c && istAusgenommen(c.cwd)) { log('sessionend_uebersprungen', { sitzung: id.slice(0, 8), grund: 'ausgenommen' }); return; } // Sitzung wechselte in einen ausgenommenen Ordner
   if (!c || c.users < 2) {
     const grund = c ? 'zu kurz' : (fs.existsSync(input.transcript_path) ? 'nicht lesbar' : 'Verlaufsdatei fehlt');
     log('sessionend_uebersprungen', { sitzung: id.slice(0, 8), grund });

@@ -13,6 +13,7 @@
     "batchGroesse": 4,
     "maxSitzungenProLauf": 12,
     "mindestAlterMin": 30,
-    "timeoutMin": 25
+    "timeoutMin": 25,
+    "rohAufbewahrungTage": 90
   }
 }
