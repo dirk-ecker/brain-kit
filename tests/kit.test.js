@@ -15,12 +15,12 @@ const vor = p => p.replace(/\\/g, '/');
 // Frische Umgebung: Vault, Projektordner, Einstellungen und CLAUDE.md liegen in einem Temp-Ordner
 function umgebung() {
   const wurzel = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-kit-'));
-  const env = { wurzel, vault: path.join(wurzel, 'vault'), projekte: path.join(wurzel, 'projects'), settings: path.join(wurzel, 'settings.json'), md: path.join(wurzel, 'CLAUDE.md') };
+  const env = { wurzel, vault: path.join(wurzel, 'vault'), projekte: path.join(wurzel, 'projects'), settings: path.join(wurzel, 'settings.json'), auggie: path.join(wurzel, 'augment', 'settings.json'), md: path.join(wurzel, 'CLAUDE.md') };
   fs.mkdirSync(env.projekte, { recursive: true });
   return env;
 }
 function installieren(env, ...extra) {
-  const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--vault', env.vault, '--projekte', env.projekte, '--settings', env.settings, '--claude-md', env.md, ...extra], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--vault', env.vault, '--projekte', env.projekte, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, ...extra], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   return r.stdout;
 }
@@ -84,7 +84,7 @@ test('Deinstallation entfernt Hooks und Block, lässt Vault und fremde Hooks ste
     fs.writeFileSync(env.settings, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo fremd' }] }] } }));
     fs.writeFileSync(env.md, '# Meine Regeln\n');
     installieren(env);
-    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     const s = JSON.parse(fs.readFileSync(env.settings, 'utf8'));
     assert.equal(brainHooks(s).length, 0);
@@ -209,11 +209,155 @@ test('Sperre: zweiter Halter wird abgewiesen, nach Freigabe klappt es wieder', (
   } finally { aufraeumen(env); }
 });
 
+test('Repo-Stand: Struktur, Doku, Abhängigkeiten; fällig erst ab 5 neuen Commits; Doku-Spiegel nur mit Schalter', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const repo = path.join(env.projekte, 'demo');
+    fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ scripts: { build: 'x' }, dependencies: { express: '1' } }));
+    fs.writeFileSync(path.join(repo, 'README.md'), '# Demo');
+    const g = (...a) => assert.equal(spawnSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' }).status, 0);
+    spawnSync('git', ['init', '-q', repo]);
+    g('add', '-A'); g('commit', '-qm', 'start');
+    fs.mkdirSync(path.join(env.vault, 'projekte', 'demo'), { recursive: true });
+    const stand = path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-stand.md');
+    const faellig = path.join(env.vault, '_meta', 'generiert', 'kuration-faellig.md');
+
+    let r = skript(env, 'sync-projekte.js');
+    assert.equal(r.status, 0, r.stderr);
+    let t = fs.readFileSync(stand, 'utf8');
+    assert.match(t, /Abhängigkeiten \(package\.json\)/);
+    assert.match(t, /`express`/);
+    assert.match(t, /`README\.md`/);
+    assert.match(t, /`src\/`/);
+    assert.ok(!t.includes(env.wurzel) && !t.includes(env.wurzel.split(path.sep).join('/')), 'kein absoluter Pfad im Repo-Stand');
+    assert.ok(!fs.existsSync(path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-docs')), 'Spiegel ist standardmäßig aus');
+    assert.ok(!/\| demo \|/.test(fs.readFileSync(faellig, 'utf8')), 'Ausgangsstand: nichts fällig');
+
+    for (let i = 0; i < 5; i++) { fs.writeFileSync(path.join(repo, 'src', 'f' + i + '.txt'), String(i)); g('add', '-A'); g('commit', '-qm', 'c' + i); }
+    r = skript(env, 'sync-projekte.js');
+    assert.match(fs.readFileSync(faellig, 'utf8'), /\| demo \| 5 \|/);
+    assert.match(fs.readFileSync(stand, 'utf8'), /Seit der letzten Kuration/);
+
+    r = skript(env, 'sync-projekte.js', ['--mark', 'demo']);
+    assert.match(r.stdout, /Markierung/);
+    skript(env, 'sync-projekte.js');
+    assert.ok(!/\| demo \|/.test(fs.readFileSync(faellig, 'utf8')), 'nach --mark nicht mehr fällig');
+
+    const cfgDatei = path.join(env.vault, '_meta', 'brain.config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgDatei, 'utf8'));
+    fs.writeFileSync(cfgDatei, JSON.stringify({ ...cfg, repoDokuSpiegeln: true }));
+    skript(env, 'sync-projekte.js');
+    const spiegel = path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-docs', 'README.md');
+    assert.match(fs.readFileSync(spiegel, 'utf8'), /generiert: true[\s\S]*# Demo/);
+    fs.writeFileSync(cfgDatei, JSON.stringify({ ...cfg, repoDokuSpiegeln: true, repoDokuOhneProjekte: ['demo'] }));
+    fs.rmSync(path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-docs'), { recursive: true, force: true });
+    skript(env, 'sync-projekte.js');
+    assert.ok(!fs.existsSync(spiegel), 'repoDokuOhneProjekte schließt das Projekt aus');
+  } finally { aufraeumen(env); }
+});
+
+test('Auggie: ohne Terminal keine Rückfrage, --auggie trägt ein (idempotent, Fremdes bleibt), Diagnose, Deinstallation', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    assert.ok(!fs.existsSync(env.auggie), 'ohne --auggie und ohne Terminal wird Auggie nicht angefasst');
+    fs.mkdirSync(path.dirname(env.auggie), { recursive: true });
+    fs.writeFileSync(env.auggie, JSON.stringify({ model: 'x', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'fremd.cmd', timeout: 1 }] }] } }));
+    installieren(env, '--auggie');
+    const lesen = () => JSON.parse(fs.readFileSync(env.auggie, 'utf8'));
+    let a = lesen();
+    assert.equal(a.model, 'x');
+    assert.deepEqual(Object.keys(a.hooks).sort(), ['PostToolUse', 'SessionEnd', 'SessionStart', 'Stop']);
+    assert.equal(a.hooks.Stop.length, 2, 'fremder Stop-Hook bleibt neben dem Brain-Hook');
+    const stopBrain = a.hooks.Stop.find(g => g.hooks.some(h => /hook-vault-auggie\.cmd/.test(h.command)));
+    assert.equal(stopBrain.metadata.includeConversationData, true);
+    assert.match(a.hooks.PostToolUse[0].matcher, /save-file/);
+    const vorher = fs.readFileSync(env.auggie, 'utf8');
+    installieren(env, '--auggie');
+    assert.equal(fs.readFileSync(env.auggie, 'utf8'), vorher, 'zweite Installation ändert nichts');
+    const d = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    assert.match(d.stdout, /OK\s+Auggie-Hooks \(4 von 4/);
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    a = lesen();
+    assert.equal(a.model, 'x');
+    assert.deepEqual(Object.keys(a.hooks), ['Stop']);
+    assert.equal(a.hooks.Stop[0].hooks[0].command, 'fremd.cmd');
+  } finally { aufraeumen(env); }
+});
+
+test('Auggie-Hooks: Start liefert den Kontext, Sitzungsende sichert geschwärzt, Automatisierung bleibt stumm', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const repo = path.join(env.projekte, 'demo');
+    fs.mkdirSync(repo, { recursive: true });
+    fs.mkdirSync(path.join(env.vault, 'projekte', 'demo'), { recursive: true });
+    fs.writeFileSync(path.join(env.vault, 'projekte', 'demo', '_index.md'), '# Demo-Index Kennwort-Test');
+    const auggie = (eingabe, extraEnv = {}) => skript(env, 'hook-vault-auggie.js', [], { input: JSON.stringify(eingabe), env: { ...process.env, ...extraEnv } });
+    const cid = 'conv-abc12345-xyz';
+    const start = auggie({ hook_event_name: 'SessionStart', conversation_id: cid, workspace_roots: [repo] });
+    assert.equal(start.status, 0, start.stderr);
+    assert.match(JSON.parse(start.stdout).hookSpecificOutput.additionalContext, /Demo-Index Kennwort-Test/);
+    assert.equal(auggie({ hook_event_name: 'SessionStart', conversation_id: cid, workspace_roots: [repo] }, { BRAIN_AUTOMATION: '1' }).stdout, '');
+    for (const n of [1, 2]) {
+      auggie({ hook_event_name: 'Stop', conversation_id: cid, workspace_roots: [repo], conversation: { timestamp: `2026-10-09T10:0${n}:00Z`, userPrompt: `Frage ${n} password: hunter2hunter2`, agentTextResponse: `Antwort ${n}`, agentCodeResponse: [] } });
+    }
+    auggie({ hook_event_name: 'SessionEnd', conversation_id: cid, workspace_roots: [repo] });
+    const roh = path.join(env.vault, 'projekte', 'demo', 'generiert', 'sitzungen-roh', '2026-10-09-abc12345.txt');
+    assert.ok(fs.existsSync(roh), 'Rohdatei wurde geschrieben');
+    const t = fs.readFileSync(roh, 'utf8');
+    assert.match(t, /NUTZER[\s\S]*Frage 2[\s\S]*AUGGIE[\s\S]*Antwort 2/);
+    assert.ok(!t.includes('hunter2hunter2'), 'Geheimnis ist geschwärzt');
+    // Ausgenommener Ordner: nichts sichern
+    const privat = path.join(env.projekte, 'private', 'x');
+    fs.mkdirSync(privat, { recursive: true });
+    for (const n of [1, 2]) auggie({ hook_event_name: 'Stop', conversation_id: 'conv-priv0000', workspace_roots: [privat], conversation: { timestamp: `2026-10-09T11:0${n}:00Z`, userPrompt: `geheim ${n}`, agentTextResponse: 'ok', agentCodeResponse: [] } });
+    auggie({ hook_event_name: 'SessionEnd', conversation_id: 'conv-priv0000', workspace_roots: [privat] });
+    assert.ok(!fs.existsSync(path.join(env.vault, 'projekte', 'private')), 'ausgenommene Ordner landen nicht im Vault');
+  } finally { aufraeumen(env); }
+});
+
+test('Arbeitsweise-Review: modellbasierte Fassung über reviewModus, geschwärzt, ausgenommene Ordner bleiben draußen', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const cfgDatei = path.join(env.vault, '_meta', 'brain.config.json');
+    fs.writeFileSync(cfgDatei, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgDatei, 'utf8')), reviewModus: 'modell' }));
+    const kodiert = p => p.replace(/[^A-Za-z0-9]/g, '-');
+    const transkripte = path.join(env.wurzel, '.claude', 'projects');
+    const sitzung = (ordner, texte) => {
+      fs.mkdirSync(path.join(transkripte, ordner), { recursive: true });
+      fs.writeFileSync(path.join(transkripte, ordner, 'abcdef12-0000.jsonl'), texte.map(t => JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { role: 'user', content: t } })).join('\n'));
+    };
+    sitzung(kodiert(env.projekte) + '-demo', ['ich hatte gesagt, nicht fragen', 'token: abcdefghijk12345 bitte nutzen']);
+    sitzung(kodiert(env.projekte) + '-private', ['darf nie im Review auftauchen']);
+    const lauf = (...a) => skript(env, 'arbeitsweise-review.js', a, { env: { ...process.env, USERPROFILE: env.wurzel, HOME: env.wurzel } });
+    let r = lauf('--nur-extraktion');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /2 Nachrichten/);
+    const nachrichten = fs.readdirSync(path.join(env.vault, '_meta', 'generiert', 'arbeitsweise')).find(f => f.endsWith('-nachrichten.md'));
+    const t = fs.readFileSync(path.join(env.vault, '_meta', 'generiert', 'arbeitsweise', nachrichten), 'utf8');
+    assert.match(t, /## demo abcdef12/);
+    assert.match(t, /nicht fragen/);
+    assert.ok(!t.includes('darf nie im Review'), 'private Sitzung wird nicht gelesen');
+    assert.ok(!t.includes('abcdefghijk12345'), 'Geheimnis ist geschwärzt');
+    // Ohne Argumente (so ruft der Start-Hook auf) gilt --faellig: erster Lauf setzt nur den Ausgangspunkt
+    r = lauf();
+    assert.equal(r.status, 0, r.stderr);
+    const st = JSON.parse(fs.readFileSync(path.join(env.vault, '_meta', 'state', 'arbeitsweise.json'), 'utf8'));
+    assert.ok(st.letzter, 'Ausgangspunkt gesetzt');
+    assert.equal(st.notiz, undefined, 'noch kein Review erzeugt');
+  } finally { aufraeumen(env); }
+});
+
 test('Diagnose läuft durch', () => {
   const env = umgebung();
   try {
     installieren(env);
-    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /OK\s+Hooks in settings\.json \(4 von 4/);
     assert.match(r.stdout, /OK\s+Arbeitsanweisung/);

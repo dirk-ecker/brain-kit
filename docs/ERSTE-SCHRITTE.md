@@ -95,7 +95,8 @@ legt die Windows-Aufgabe `Brain-Sitzungen-verdichten` an (täglich 21:30 Uhr, ve
 ## 8. Nach einer Woche
 
 - Der **Start-Hook** meldet, wenn der Verdichtungslauf ausblieb oder Probleme hatte.
-- Ein **Arbeitsweise-Review** (`_global/arbeitsweise-reviews/`) fasst Korrekturen, Hook-Ereignisse, Kosten und die Vault-Nutzung zusammen und wird einmal gemeldet.
+- Ein **Arbeitsweise-Review** (`_global/arbeitsweise-reviews/`) fasst Korrekturen, Hook-Ereignisse, Kosten und die Vault-Nutzung zusammen und wird einmal gemeldet. Wer mehr als Schlüsselwörter erkennen will, stellt `"reviewModus": "modell"` in `brain.config.json` ein (ein Claude-Aufruf alle 14 Tage).
+- **Auggie:** Wer auch Augment nutzt, bejaht die Frage bei der Installation (oder ruft `node installieren.js --auggie` auf). Auggie-Sitzungen landen dann im selben Vault und werden vom selben Verdichtungslauf verarbeitet.
 - Der **Prüfbericht** (`_meta/generiert/vault-pruefung.md`) zeigt defekte Links, fehlende Angaben und Verdacht auf Geheimnisse.
 
 Wenn etwas nicht wie beschrieben läuft: [BETRIEB.md](BETRIEB.md), Abschnitt „Probleme“.

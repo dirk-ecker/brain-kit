@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Installiert das Brain-Kit: legt den Vault an bzw. aktualisiert das Werkzeug darin, trägt die Claude-Code-Hooks ein und
-// ergänzt die globale CLAUDE.md um die Arbeitsanweisung. Läuft nur mit Node, ohne Pakete.
+// Installiert das Brain-Kit: legt den Vault an bzw. aktualisiert das Werkzeug darin, trägt die Claude-Code-Hooks (auf Wunsch auch die
+// Auggie-Hooks) ein und ergänzt die globale CLAUDE.md um die Arbeitsanweisung. Läuft nur mit Node, ohne Pakete.
 //
 //   node installieren.js [--vault <ordner>] [--projekte <ordner>] [Optionen]
 //   node installieren.js --pruefen [--vault <ordner>]       Diagnose der Installation
@@ -11,6 +11,9 @@
 //   --projekte <ordner>  Ordner mit den Projekt-Repos (Standard: ~/Documents/projects, sonst ~/projects)
 //   --settings <datei>   Claude-Code-Einstellungen (Standard: ~/.claude/settings.json)
 //   --claude-md <datei>  globale CLAUDE.md (Standard: ~/.claude/CLAUDE.md)
+//   --auggie             zusätzlich die Hooks für Auggie (Augment) in ~/.augment/settings.json eintragen
+//   --ohne-auggie        Auggie nicht einbinden (ohne beide Schalter fragt die Installation nach, wenn sie interaktiv läuft)
+//   --auggie-settings <datei>  Auggie-Einstellungen (Standard: ~/.augment/settings.json)
 //   --ohne-hooks         Hooks nicht eintragen
 //   --ohne-claude-md     CLAUDE.md nicht ändern
 //   --aufgabe            zusätzlich die tägliche Windows-Aufgabe für die Verdichtung einrichten (sonst nur als Hinweis)
@@ -44,6 +47,7 @@ const vault = path.resolve(wert('--vault', path.join(heim, 'brain')));
 const projekte = path.resolve(wert('--projekte', [path.join(heim, 'Documents', 'projects'), path.join(heim, 'projects')].find(p => fs.existsSync(p)) || path.join(heim, 'projects')));
 const settingsDatei = path.resolve(wert('--settings', path.join(heim, '.claude', 'settings.json')));
 const claudeMd = path.resolve(wert('--claude-md', path.join(heim, '.claude', 'CLAUDE.md')));
+const auggieDatei = path.resolve(wert('--auggie-settings', path.join(heim, '.augment', 'settings.json')));
 const trocken = hat('--trocken');
 const vor = s => s.replace(/\\/g, '/'); // Pfade in Befehlen und Konfiguration mit Schrägstrichen
 const zeit = () => new Date().toISOString().replace(/[:.]/g, '-');
@@ -114,14 +118,23 @@ function gitAnlegen() {
 }
 
 // ── Hooks in settings.json ───────────────────────────────────────────────────────
+// Auggie: ein Skript für alle Events (hook-vault-auggie.cmd), Ereignis kommt im Hook-JSON. Kein UserPromptSubmit-Pendant.
+const AUGGIE_HOOKS = [
+  { event: 'SessionStart', timeout: 10000 },
+  { event: 'PostToolUse', timeout: 5000, matcher: 'save-file|str-replace-editor|remove-files' },
+  { event: 'Stop', timeout: 10000, metadata: { includeConversationData: true } },
+  { event: 'SessionEnd', timeout: 20000 },
+];
+const auggieBefehl = () => path.join(vault, '_meta', 'skripte', 'hook-vault-auggie.cmd');
+const istAuggieHook = h => /hook-vault-auggie\.cmd/.test(String(h && h.command));
 const befehl = modus => `node "${vor(path.join(vault, '_meta', 'skripte', 'hook-vault.js'))}" ${modus}`;
 const istBrainHook = h => /hook-vault\.js/.test(String(h && h.command));
 
-function settingsEntfernen(s) {
+function settingsEntfernen(s, ist = istBrainHook) {
   let entfernt = 0;
   for (const ev of Object.keys(s.hooks || {})) {
     s.hooks[ev] = (s.hooks[ev] || []).map(gruppe => {
-      const rest = (gruppe.hooks || []).filter(h => !(istBrainHook(h) && ++entfernt));
+      const rest = (gruppe.hooks || []).filter(h => !(ist(h) && ++entfernt));
       return { ...gruppe, hooks: rest };
     }).filter(g => g.hooks.length);
     if (!s.hooks[ev].length) delete s.hooks[ev];
@@ -145,6 +158,40 @@ function hooksEintragen() {
   sichere(settingsDatei);
   schreibe(settingsDatei, neu);
   sag('Hooks', `4 Hooks in ${vor(settingsDatei)} eingetragen (Sicherung der alten Datei daneben)`);
+}
+
+function auggieEintragen() {
+  const roh = lies(auggieDatei);
+  let s = {};
+  if (roh !== null) { try { s = JSON.parse(roh); } catch { sag('FEHLER', `${auggieDatei} ist kein gültiges JSON: Auggie nicht eingebunden`); process.exitCode = 1; return; } }
+  settingsEntfernen(s, istAuggieHook); // vorhandene Brain-Hooks (auch mit altem Pfad) ersetzen, fremde Hooks bleiben
+  s.hooks = s.hooks || {};
+  for (const h of AUGGIE_HOOKS) {
+    const gruppe = { ...(h.matcher ? { matcher: h.matcher } : {}), hooks: [{ type: 'command', command: auggieBefehl(), timeout: h.timeout }], ...(h.metadata ? { metadata: h.metadata } : {}) };
+    s.hooks[h.event] = [...(s.hooks[h.event] || []), gruppe];
+  }
+  if (roh !== null && JSON.stringify(JSON.parse(roh)) === JSON.stringify(s)) { sag('Auggie', 'Hooks bereits eingetragen'); return; }
+  if (roh !== null) sichere(auggieDatei);
+  schreibe(auggieDatei, JSON.stringify(s, null, 2) + '\n');
+  sag('Auggie', `${AUGGIE_HOOKS.length} Hooks in ${vor(auggieDatei)} eingetragen (Korrektur-Erkennung beim Prompt gibt es bei Auggie nicht)`);
+}
+
+// Frage bei interaktiver Installation; ohne Terminal gilt der Standardwert.
+function frage(text, std) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return std;
+  process.stdout.write(`${text} [${std ? 'J/n' : 'j/N'}] `);
+  const puffer = Buffer.alloc(256);
+  let n = 0;
+  try { n = fs.readSync(0, puffer, 0, 256, null); } catch { return std; }
+  const antwort = puffer.toString('utf8', 0, n).trim().toLowerCase();
+  return antwort === '' ? std : /^(j|ja|y|yes)$/.test(antwort);
+}
+function mitAuggie() {
+  if (hat('--auggie')) return true;
+  if (hat('--ohne-auggie') || hat('--ohne-hooks')) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false; // ohne Terminal nie raten
+  const erkannt = fs.existsSync(path.dirname(auggieDatei));
+  return frage(`Auggie (Augment) erkannt${erkannt ? '' : ' nicht'}. Hooks auch dafür eintragen (${vor(auggieDatei)})?`, erkannt);
 }
 
 // ── CLAUDE.md ────────────────────────────────────────────────────────────────────
@@ -189,6 +236,11 @@ function pruefen() {
   let s = {}; try { s = JSON.parse(lies(settingsDatei) || '{}'); } catch { /* ungültig */ }
   const eingetragen = HOOKS.filter(h => (s.hooks && s.hooks[h.event] || []).some(g => (g.hooks || []).some(x => x.command === befehl(h.modus))));
   ok(eingetragen.length === HOOKS.length, `Hooks in settings.json (${eingetragen.length} von ${HOOKS.length}, Pfad passt zum Vault)`, 'node installieren.js ausführen');
+  let a = null; try { a = JSON.parse(lies(auggieDatei) || 'null'); } catch { /* ungültig */ }
+  if (a || hat('--auggie')) {
+    const n = AUGGIE_HOOKS.filter(h => ((a && a.hooks && a.hooks[h.event]) || []).some(g => (g.hooks || []).some(x => x.command === auggieBefehl()))).length;
+    ok(n === AUGGIE_HOOKS.length, `Auggie-Hooks (${n} von ${AUGGIE_HOOKS.length}, Pfad passt zum Vault)`, 'node installieren.js --auggie ausführen');
+  }
   ok((lies(claudeMd) || '').includes(BLOCK_START), 'Arbeitsanweisung in der globalen CLAUDE.md', 'node installieren.js ausführen');
   const st = spawnSync('schtasks', ['/Query', '/TN', 'Brain-Sitzungen-verdichten'], { encoding: 'utf8', windowsHide: true });
   ok(st.status === 0, 'Windows-Aufgabe Brain-Sitzungen-verdichten', 'optional: node installieren.js --aufgabe');
@@ -204,6 +256,12 @@ function deinstallieren() {
     const n = settingsEntfernen(s);
     if (n) { sichere(settingsDatei); schreibe(settingsDatei, JSON.stringify(s, null, 2) + '\n'); }
     sag('Hooks', `${n} Brain-Hook(s) entfernt`);
+  }
+  const aroh = lies(auggieDatei);
+  if (aroh !== null) {
+    let a; try { a = JSON.parse(aroh); } catch { a = null; }
+    const n = a ? settingsEntfernen(a, istAuggieHook) : 0;
+    if (n) { sichere(auggieDatei); schreibe(auggieDatei, JSON.stringify(a, null, 2) + '\n'); sag('Auggie', `${n} Brain-Hook(s) entfernt`); }
   }
   const md = lies(claudeMd);
   const ohne = md === null ? null : blockEntfernen(md);
@@ -221,6 +279,7 @@ function main() {
   geruest();
   gitAnlegen();
   if (!hat('--ohne-hooks')) hooksEintragen(); else sag('Hooks', 'übersprungen (--ohne-hooks)');
+  if (mitAuggie()) auggieEintragen(); else sag('Auggie', 'nicht eingebunden (nachholen: node installieren.js --auggie)');
   if (!hat('--ohne-claude-md')) claudeMdSchreiben(); else sag('CLAUDE.md', 'übersprungen (--ohne-claude-md)');
   aufgabe();
   console.log('\nFertig. Neue Claude-Code-Sitzungen laden den Vault automatisch. Kontrolle: node installieren.js --pruefen');

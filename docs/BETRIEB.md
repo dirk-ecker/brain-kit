@@ -13,6 +13,14 @@ Der Installer legt die Datei an und überschreibt sie nie. Fehlt ein Schlüssel,
 | `namen` | `{}` | abweichende Vault-Namen: `{"MeinProjekt": "mein-projekt"}` (sonst kebab-case des Ordnernamens) |
 | `kurzAb` | Installationsdatum | ab diesem Datum verlangt die Prüfung `kurz` und `themen` bei gültigen Entscheidungen und Erkenntnissen |
 | `archivTage` | `60` | Läufe und Sitzungsnotizen älter als so viele Tage gehen nach `archiv/` (Belege gültiger Notizen bleiben) |
+| `reviewModus` | `regel` | `modell`: Arbeitsweise-Review per Claude-Aufruf statt regelbasiert (kostet Token, findet mehr) |
+| `reviewTage` | `14` | Abstand der Reviews im Modus `modell` |
+| `reviewModell` | `sonnet` | Modell des Reviews im Modus `modell` |
+| `reviewBudgetUsd` | `1.5` | Kostengrenze je Review im Modus `modell` |
+| `reviewNotizOrdner` | `_global/arbeitsweise-reviews` | Ablageort der Review-Notizen im Modus `modell` |
+| `repoDokuSpiegeln` | `false` | `true` spiegelt alle Markdown-Dokumente der Repos nach `projekte/<p>/generiert/repo-docs/` (kopiert Repo-Inhalte in den Vault) |
+| `repoDokuAusgenommen` | `[]` | zusätzliche Ordnernamen, die der Doku-Spiegel überspringt |
+| `repoDokuOhneProjekte` | `[]` | Projekte (Vault-Namen) ohne Doku-Spiegel, z. B. mit eigenem Spiegel |
 | `verdichten.modell` | `sonnet` | Modell der Verdichtungs-Instanz |
 | `verdichten.budgetUsdProBatch` | `1.5` | Kostengrenze je Batch (`--max-budget-usd`) |
 | `verdichten.batchGroesse` | `4` | Sitzungen je Claude-Aufruf |

@@ -72,7 +72,9 @@ Auch wenn nichts zu verdichten ist, laufen Nacharbeiten und Commit (mit `--ausfu
 
 | Skript | Zweck |
 |---|---|
-| `hook-vault.js` | die vier Hooks |
+| `hook-vault.js` | die vier Hooks für Claude Code |
+| `hook-vault-auggie.js` (+ `.cmd`) | Auggie-Hooks (SessionStart, PostToolUse, Stop, SessionEnd); ein Skript für alle Ereignisse, Auggie erlaubt je Hook nur einen Pfad ohne Argumente, daher der `.cmd`-Starter. Gleicher Start-Kontext, gleiche Stop-Erinnerung (ab 3 Projektdateien), Rohsitzung geschwärzt in denselben Ordner. Kein Pendant zu UserPromptSubmit: keine Korrektur-Erkennung und keine Vault-Treffer im Prompt |
+| `hook-lib.js` | gemeinsame Bausteine beider Hook-Skripte: Logger (`tool: claude` bzw. `auggie` im Log), Hook-Fehler-Zustand, Wartungsstart, Start-Kontext |
 | `prompt-treffer.js` | Baustein des Prompt-Hooks (Treffer zu einem Prompt) |
 | `vault-suche.js` | gezielte Suche: Begriffe, `--gueltig`, `--themen`, `--thema`, `--kette`, `--verweise`, `--typ`, `--alle`, `--archiv` |
 | `sitzungen-verdichten.js` | der Verdichtungslauf |
@@ -80,8 +82,9 @@ Auch wenn nichts zu verdichten ist, laufen Nacharbeiten und Commit (mit `--ausfu
 | `sitzungen-index.js` | `projekte/<p>/sitzungen/_uebersicht.md` |
 | `sitzungen-extrahieren.js` | sichert rückwirkend alle bisherigen Claude-Sitzungen des Rechners als Rohdateien (Probelauf ohne `--ausfuehren`) |
 | `vault-archiv.js` | verschiebt Läufe und Sitzungsnotizen älter als `archivTage` nach `archiv/` (nichts wird gelöscht) |
-| `sync-projekte.js` | meldet Projekte mit neuen Repo-Commits seit der letzten Kuration; `--mark <projekt>` nach erledigter Kuration |
-| `arbeitsweise-review.js` | wöchentlicher Review aus Korrekturen, Hook-Ereignissen, Kosten und Vault-Nutzung |
+| `sync-projekte.js` | meldet Projekte mit neuen Repo-Commits seit der letzten Kuration (`--mark <projekt>` nach erledigter Kuration) und schreibt je Repo `generiert/repo-stand.md` (Git-Stand, Commits, Struktur, Markdown-Dokumente, Abhängigkeiten); optional Spiegel der Repo-Doku (`repoDokuSpiegeln`) |
+| `arbeitsweise-review.js` | wöchentlicher Review aus Korrekturen, Hook-Ereignissen, Kosten und Vault-Nutzung (regelbasiert, kostenlos); mit `"reviewModus": "modell"` übernimmt `arbeitsweise-review-modell.js` |
+| `arbeitsweise-review-modell.js` | Review-Alternative mit Claude-Aufruf: wertet die (geschwärzten) Nutzernachrichten aller Sitzungen seit dem letzten Review aus und findet auch Muster ohne Schlüsselwort; alle `reviewTage` (14), Budget `reviewBudgetUsd`, Notiz unter `reviewNotizOrdner`; ausgenommene Ordner und der Vault selbst werden nie gelesen |
 | `aufgabe-einrichten.ps1` | legt die Windows-Aufgabe an |
 | `sitzung-lib.js` | gemeinsame Bibliothek: Verdichten und Schwärzen, Projektzuordnung, Sperre, atomares Schreiben |
 

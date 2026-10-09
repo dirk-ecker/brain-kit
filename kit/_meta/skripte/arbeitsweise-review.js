@@ -12,10 +12,20 @@
 // Ergebnis: _global/arbeitsweise-reviews/JJJJ-MM-TT-arbeitsweise-review.md (typ lauf) und _meta/state/arbeitsweise.json
 // ({notiz, kurz, gemeldet:false}, vom Hook gelesen). Zustand je Lauf: _meta/state/arbeitsweise-lauf.json.
 // Schreibt atomar und unter Sperre. Exit-Code immer 0.
+// Modellbasierte Alternative: "reviewModus": "modell" in brain.config.json (siehe arbeitsweise-review-modell.js).
 
 const fs = require('fs');
 const path = require('path');
 const { VAULT, schreibeAtomar, sperre } = require('./sitzung-lib');
+
+// "reviewModus": "modell" (brain.config.json) ersetzt diese regelbasierte Fassung durch arbeitsweise-review-modell.js (Claude-Aufruf, kostet Token,
+// findet auch Muster ohne Schlüsselwort). Alle Aufrufer (Start-Hook, Verdichtungslauf) bleiben unverändert; ohne Argumente gilt --faellig.
+const reviewModus = (() => { try { return JSON.parse(fs.readFileSync(path.join(VAULT, '_meta', 'brain.config.json'), 'utf8')).reviewModus; } catch { return null; } })();
+if (reviewModus === 'modell') {
+  const a = process.argv.slice(2);
+  const r = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'arbeitsweise-review-modell.js'), ...(a.length ? a : ['--faellig'])], { stdio: 'inherit', env: process.env, windowsHide: true });
+  process.exit(r.status === null ? 0 : r.status);
+}
 
 // Nur eindeutige Korrekturformeln: das breite Hook-Muster (KORREKTUR) trifft auch Funktionswünsche wie „immer speichern“ und taugt nur als Erinnerung.
 const STARK = /ich hatte (doch )?gesagt|ich meinte|ich wollte (das |die |den )?(doch )?nicht|wollte ich nicht|nicht (mehr )?fragen|das habe ich (doch )?(schon )?gesagt|so nicht|(künftig|ab jetzt|ab sofort|niemals|grundsätzlich)|ohne (das )?ich (nochmal |wieder )?gefragt/i;

@@ -33,6 +33,10 @@ Der Ordner steht für den **Geltungsbereich**, nicht für den Ort der Entdeckung
 - Wert entsteht durch Vergleich mehrerer Projekte → `_cross-project/`
 
 Eine Entdeckung kann mehrere Wirkungen haben: Allgemeines nach `_global/`, die Folge fürs Projekt als Entscheidung im Projekt, beide verlinken sich (kein doppelter Inhalt).
+- **Globale Seiten behalten den Entdeckungskontext**, wo er Wert hat: Abschnitt „Beobachtet in“ mit Links auf die Projekte.
+- **Befördern** (Projekt → global/projektübergreifend) nur bei mehr Belegen oder breiterer Gültigkeit, nicht mechanisch. **Zurückstufen:** erweist sich Allgemeines als umgebungsabhängig, die globale Seite korrigieren und einengen, die Projektfolge bleibt.
+- **Ohne Projekt** (Recherchen, Artikel, Methoden, Ideen aus projektfreien Gesprächen): nach `_global/` bzw. `_cross-project/`.
+- **Ausdrückliche Vorgabe des Nutzers** („gehört zu Projekt X“, „ist allgemein“, „verbinde mit Y“) schlägt die automatische Einordnung.
 
 ## Kopf jeder Notiz (YAML)
 

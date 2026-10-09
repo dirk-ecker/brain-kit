@@ -2,7 +2,7 @@
 
 Ein Wissens-Vault („Brain“) für Claude Code. Claude hält Entscheidungen, Erkenntnisse und offene Punkte aus allen deinen Projekten als Markdown-Notizen fest, findet sie bei der nächsten Aufgabe wieder und verdichtet ältere Sitzungen automatisch. Der Vault ist ein normaler Ordner und lässt sich auch in Obsidian lesen. Dieses Repo enthält nur das **Werkzeug**, keine Inhalte.
 
-> Version 0.1.0 · **nur Windows** · **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster) · privates Repo, keine Lizenz hinterlegt
+> Version 0.2.0 · **nur Windows** · **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster) · privates Repo, keine Lizenz hinterlegt
 
 ## Wozu
 
@@ -34,7 +34,7 @@ Dann Claude Code neu starten, in einem Projekt unter dem Projekte-Ordner arbeite
 3. ergänzt `~/.claude/CLAUDE.md` um die Arbeitsanweisung (Block zwischen `<!-- brain:start … -->` und `<!-- brain:end -->`),
 4. richtet **nur auf Wunsch** (`--aufgabe`) die tägliche Windows-Aufgabe ein.
 
-Er ist idempotent und sichert beide Dateien vorher (`.brain-sicherung-<zeit>`). `--ohne-hooks`, `--ohne-claude-md`, `--trocken`, `--pruefen` und `--deinstallieren` gibt es auch. **Update:** Kit neu holen, `node installieren.js` mit denselben Parametern: Kit-Dateien im Vault werden ersetzt (alte Fassung als `.bak`), Konfiguration und Notizen nie.
+Er ist idempotent und sichert beide Dateien vorher (`.brain-sicherung-<zeit>`). `--ohne-hooks`, `--ohne-claude-md`, `--trocken`, `--pruefen` und `--deinstallieren` gibt es auch. **Auggie (Augment):** Läuft die Installation in einem Terminal, fragt sie, ob die Hooks auch in `~/.augment/settings.json` eingetragen werden sollen (Standard: ja, wenn Auggie erkannt wird). Ohne Terminal entscheidet `--auggie` bzw. `--ohne-auggie`; nachträglich genügt `node installieren.js --auggie`. **Update:** Kit neu holen, `node installieren.js` mit denselben Parametern: Kit-Dateien im Vault werden ersetzt (alte Fassung als `.bak`), Konfiguration und Notizen nie.
 
 ## Dokumentation
 
