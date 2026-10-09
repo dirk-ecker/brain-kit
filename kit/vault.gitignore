@@ -1,0 +1,7 @@
+*.lock
+*.tmp
+_meta/state/
+_meta/logs/
+.obsidian/workspace*.json
+.obsidian/cache
+.trash/

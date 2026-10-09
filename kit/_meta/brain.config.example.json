@@ -1,0 +1,18 @@
+{
+  "projektOrdner": "{{PROJEKTE}}",
+  "ausgenommen": [
+    "private",
+    ".claude"
+  ],
+  "namen": {},
+  "kurzAb": "{{HEUTE}}",
+  "archivTage": 60,
+  "verdichten": {
+    "modell": "sonnet",
+    "budgetUsdProBatch": 1.5,
+    "batchGroesse": 4,
+    "maxSitzungenProLauf": 12,
+    "mindestAlterMin": 30,
+    "timeoutMin": 25
+  }
+}
