@@ -363,3 +363,18 @@ test('Diagnose läuft durch', () => {
     assert.match(r.stdout, /OK\s+Arbeitsanweisung/);
   } finally { aufraeumen(env); }
 });
+
+test('Diagnose akzeptiert die Arbeitsanweisung in den Auggie-Regeln', () => {
+  const env = umgebung();
+  try {
+    installieren(env, '--ohne-claude-md');
+    const args = ['--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie];
+    let r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), ...args], { encoding: 'utf8' });
+    assert.match(r.stdout, /FEHLT\s+Arbeitsanweisung/);
+    const regel = path.join(path.dirname(env.auggie), 'rules', 'brain.md');
+    fs.mkdirSync(path.dirname(regel), { recursive: true });
+    fs.writeFileSync(regel, `Vault ${env.vault.replace(/\\/g, '/')}\n`);
+    r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), ...args], { encoding: 'utf8' });
+    assert.match(r.stdout, /OK\s+Arbeitsanweisung in den Auggie-Regeln/);
+  } finally { aufraeumen(env); }
+});

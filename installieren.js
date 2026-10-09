@@ -241,7 +241,11 @@ function pruefen() {
     const n = AUGGIE_HOOKS.filter(h => ((a && a.hooks && a.hooks[h.event]) || []).some(g => (g.hooks || []).some(x => x.command === auggieBefehl()))).length;
     ok(n === AUGGIE_HOOKS.length, `Auggie-Hooks (${n} von ${AUGGIE_HOOKS.length}, Pfad passt zum Vault)`, 'node installieren.js --auggie ausführen');
   }
-  ok((lies(claudeMd) || '').includes(BLOCK_START), 'Arbeitsanweisung in der globalen CLAUDE.md', 'node installieren.js ausführen');
+  // Auggie liest die globale CLAUDE.md nicht: dort zählt eine Regeldatei neben seiner settings.json (rules/brain.md)
+  const imClaudeMd = (lies(claudeMd) || '').includes(BLOCK_START);
+  const auggieRegel = path.join(path.dirname(auggieDatei), 'rules', 'brain.md');
+  const inAuggieRegel = (lies(auggieRegel) || '').includes(vor(vault));
+  ok(imClaudeMd || inAuggieRegel, `Arbeitsanweisung in ${[imClaudeMd && 'der globalen CLAUDE.md', inAuggieRegel && 'den Auggie-Regeln (rules/brain.md)'].filter(Boolean).join(' und ') || 'der globalen CLAUDE.md'}`, 'node installieren.js ausführen');
   const st = spawnSync('schtasks', ['/Query', '/TN', 'Brain-Sitzungen-verdichten'], { encoding: 'utf8', windowsHide: true });
   ok(st.status === 0, 'Windows-Aufgabe Brain-Sitzungen-verdichten', 'optional: node installieren.js --aufgabe');
   const letzter = lies(path.join(vault, '_meta', 'state', 'verdichten-letzter.json'));
