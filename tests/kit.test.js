@@ -177,6 +177,25 @@ test('Git-Sicherung: kein Repo, Initialisierung, Commit, unveränderter Stand, S
   } finally { aufraeumen(env); }
 });
 
+test('Git-Sicherung: Start-Hook meldet fehlendes .git und fehlgeschlagene Sicherung; der Verdichtungslauf bricht ohne .git nicht ab', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const projekt = path.join(env.vault, 'projekte', 'demo-app');
+    fs.mkdirSync(projekt, { recursive: true });
+    fs.writeFileSync(path.join(projekt, '_index.md'), '# demo-app\n\nZweck: Test.\n');
+    const start = () => JSON.parse(hook(env, 'start', { cwd: vor(path.join(env.projekte, 'demo-app')), session_id: 'abcdef12-0000' }).stdout).hookSpecificOutput.additionalContext;
+    assert.doesNotMatch(start(), /Git-Sicherung/, 'mit Repo und ohne Status keine Meldung');
+    fs.writeFileSync(path.join(env.vault, '_meta', 'state', 'git-sicherung.json'), JSON.stringify({ ts: new Date().toISOString(), ok: false, fehler: 'GIT_FEHLER', meldung: 'git commit: kaputt' }));
+    assert.match(start(), /Letzte Git-Sicherung fehlgeschlagen \(git commit: kaputt/);
+    fs.rmSync(path.join(env.vault, '.git'), { recursive: true, force: true });
+    assert.match(start(), /Im Vault fehlt \.git/);
+    const r = skript(env, 'sitzungen-verdichten.js', ['--ausfuehren']);
+    assert.equal(r.status, 0, 'Lauf bricht ohne .git nicht ab: ' + r.stderr);
+    assert.match(fs.readFileSync(path.join(env.vault, '_meta', 'logs', 'automation.log.jsonl'), 'utf8'), /"event":"git_fehlt"/);
+  } finally { aufraeumen(env); }
+});
+
 // Hilfsmittel: kleiner Sitzungsverlauf im Format von Claude Code
 function verlauf(env, projekt, edits = 0) {
   const cwd = vor(path.join(env.projekte, projekt));

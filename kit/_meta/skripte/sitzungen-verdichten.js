@@ -194,9 +194,9 @@ function batchLaufen(projekt, dateien) {
 }
 
 // Der Vault ist ein lokales Git-Repo (ohne Remote): Vor und nach dem Lauf je ein Commit, damit jede Änderung der Automatik
-// nachvollziehbar und umkehrbar ist und von Änderungen laufender Sitzungen getrennt bleibt. Fehlt .git, passiert nichts. Sperre, Fehlerstatus (`_meta/state/git-sicherung.json`) und Log über vault-sicherung.js.
+// nachvollziehbar und umkehrbar ist und von Änderungen laufender Sitzungen getrennt bleibt. Fehlt .git, bricht der Lauf nicht ab: er protokolliert `git_fehlt`, und der Start-Hook meldet es. Sperre, Fehlerstatus (`_meta/state/git-sicherung.json`) und Log über vault-sicherung.js.
 function gitSicherung(nachricht) {
-  if (!fs.existsSync(path.join(VAULT, '.git'))) return;
+  if (!fs.existsSync(path.join(VAULT, '.git'))) { log('git_fehlt', { nachricht, hinweis: 'Vault ohne .git: keine Git-Sicherung (node installieren.js legt das Repo an); der Start-Hook meldet es' }); return; }
   const ergebnis = require('./vault-sicherung').sichern(nachricht);
   if (!ergebnis.ok) { console.error('Git-Sicherung fehlgeschlagen: ' + ergebnis.meldung); process.exitCode = 1; }
 }

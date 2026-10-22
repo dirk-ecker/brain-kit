@@ -119,6 +119,14 @@ function baueStart(cwd, sitzungId, log) {
     const n = z ? [z.defektLinks, z.verwaist, z.kopf, z.herkunftFehlt, z.ketten, z.doppelt, z.geheimnis, z.indexGross].reduce((x, y) => x + (y || 0), 0) : 0;
     if (n) { pruefung = z; warn.push(`Vault-Prüfung ${n} Befunde (_meta/generiert/vault-pruefung.md; beim Anfassen der Notiz beheben)`); }
   } catch { wartungAnstossen(log); /* noch kein Prüflauf */ }
+  // Git-Sicherung des Vaults: fehlendes Repo oder fehlgeschlagene Sicherung melden, damit nicht tagelang still nichts gesichert wird.
+  try {
+    if (!fs.existsSync(path.join(VAULT, '.git'))) warn.push('Im Vault fehlt .git: die automatische Git-Sicherung läuft nicht (node installieren.js legt das Repo an)');
+    else {
+      const g = JSON.parse(fs.readFileSync(path.join(VAULT, '_meta', 'state', 'git-sicherung.json'), 'utf8'));
+      if (g.ok === false) warn.push(`Letzte Git-Sicherung fehlgeschlagen (${String(g.meldung || g.fehler || '').slice(0, 120)}; _meta/state/git-sicherung.json)`);
+    }
+  } catch { /* noch kein Sicherungsstatus */ }
   // Arbeitsweise-Review (arbeitsweise-review.js): neuer Review wird genau einmal gemeldet.
   // Atomar übernommen (Umbenennen gelingt nur einer parallelen Sitzung), damit der Hinweis nicht doppelt kommt.
   try {
