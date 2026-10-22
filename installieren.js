@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Installiert das Brain-Kit: legt den Vault an bzw. aktualisiert das Werkzeug darin, trägt die Claude-Code-Hooks (auf Wunsch auch die
-// Auggie-Hooks) ein und ergänzt die globale CLAUDE.md um die Arbeitsanweisung. Läuft nur mit Node, ohne Pakete.
+// Hooks und Regeln für Auggie und Codex) ein und ergänzt die globale CLAUDE.md um die Arbeitsanweisung. Läuft nur mit Node, ohne Pakete.
 //
 //   node installieren.js [--vault <ordner>] [--projekte <ordner>] [Optionen]
 //   node installieren.js --pruefen [--vault <ordner>]       Diagnose der Installation
@@ -14,6 +14,12 @@
 //   --auggie             zusätzlich die Hooks für Auggie (Augment) in ~/.augment/settings.json eintragen
 //   --ohne-auggie        Auggie nicht einbinden (ohne beide Schalter fragt die Installation nach, wenn sie interaktiv läuft)
 //   --auggie-settings <datei>  Auggie-Einstellungen (Standard: ~/.augment/settings.json)
+//   --codex              zusätzlich Hooks (hooks.json) und Arbeitsanweisung (AGENTS.md) für Codex in ~/.codex eintragen
+//   --ohne-codex         Codex nicht einbinden (ohne beide Schalter fragt die Installation nach, wenn sie interaktiv läuft)
+//   --codex-dir <ordner> Codex-Ordner (Standard: ~/.codex)
+//   --antigravity        zusätzlich die Arbeitsanweisung für Antigravity (agy) in ~/.gemini/GEMINI.md eintragen (nur Regeln, keine Hooks)
+//   --ohne-antigravity   Antigravity nicht einbinden (ohne beide Schalter fragt die Installation nach, wenn sie interaktiv läuft)
+//   --antigravity-md <datei>  GEMINI.md von Antigravity (Standard: ~/.gemini/GEMINI.md)
 //   --ohne-hooks         Hooks nicht eintragen
 //   --ohne-claude-md     CLAUDE.md nicht ändern
 //   --aufgabe            zusätzlich die tägliche Windows-Aufgabe für die Verdichtung einrichten (sonst nur als Hinweis)
@@ -48,6 +54,11 @@ const projekte = path.resolve(wert('--projekte', [path.join(heim, 'Documents', '
 const settingsDatei = path.resolve(wert('--settings', path.join(heim, '.claude', 'settings.json')));
 const claudeMd = path.resolve(wert('--claude-md', path.join(heim, '.claude', 'CLAUDE.md')));
 const auggieDatei = path.resolve(wert('--auggie-settings', path.join(heim, '.augment', 'settings.json')));
+const codexDir = path.resolve(wert('--codex-dir', path.join(heim, '.codex')));
+const codexHooksDatei = path.join(codexDir, 'hooks.json');
+const codexMd = path.join(codexDir, 'AGENTS.md');
+const antigravityMd = path.resolve(wert('--antigravity-md', path.join(heim, '.gemini', 'GEMINI.md')));
+const auggieRegel = path.join(path.dirname(auggieDatei), 'rules', 'brain.md');
 const trocken = hat('--trocken');
 const vor = s => s.replace(/\\/g, '/'); // Pfade in Befehlen und Konfiguration mit Schrägstrichen
 const zeit = () => new Date().toISOString().replace(/[:.]/g, '-');
@@ -127,6 +138,18 @@ const AUGGIE_HOOKS = [
 ];
 const auggieBefehl = () => path.join(vault, '_meta', 'skripte', 'hook-vault-auggie.cmd');
 const istAuggieHook = h => /hook-vault-auggie\.cmd/.test(String(h && h.command));
+// Codex: ein Adapter für alle Ereignisse (hook-vault-codex.js), hooks.json neben config.toml. Der Node-Pfad steht ohne Anführungszeichen im Befehl
+// (PowerShell liest einen quotierten Programmpfad als Zeichenkette), deshalb dürfen die Pfade keine Leerzeichen enthalten.
+const CODEX_HOOKS = [
+  { event: 'SessionStart', timeout: 8, kontext: true },
+  { event: 'SubagentStart', timeout: 8, kontext: true },
+  { event: 'UserPromptSubmit', timeout: 8, kontext: true },
+  { event: 'PostToolUse', timeout: 8 },
+  { event: 'Stop', timeout: 8 },
+  { event: 'SessionEnd', timeout: 3 },
+];
+const codexBefehl = () => `${vor(process.execPath)} ${vor(path.join(vault, '_meta', 'skripte', 'hook-vault-codex.js'))}`;
+const istCodexHook = h => /hook-vault-codex\.js/.test(String(h && h.command));
 const befehl = modus => `node "${vor(path.join(vault, '_meta', 'skripte', 'hook-vault.js'))}" ${modus}`;
 const istBrainHook = h => /hook-vault\.js/.test(String(h && h.command));
 
@@ -170,10 +193,51 @@ function auggieEintragen() {
     const gruppe = { ...(h.matcher ? { matcher: h.matcher } : {}), hooks: [{ type: 'command', command: auggieBefehl(), timeout: h.timeout }], ...(h.metadata ? { metadata: h.metadata } : {}) };
     s.hooks[h.event] = [...(s.hooks[h.event] || []), gruppe];
   }
-  if (roh !== null && JSON.stringify(JSON.parse(roh)) === JSON.stringify(s)) { sag('Auggie', 'Hooks bereits eingetragen'); return; }
-  if (roh !== null) sichere(auggieDatei);
-  schreibe(auggieDatei, JSON.stringify(s, null, 2) + '\n');
-  sag('Auggie', `${AUGGIE_HOOKS.length} Hooks in ${vor(auggieDatei)} eingetragen (Korrektur-Erkennung beim Prompt gibt es bei Auggie nicht)`);
+  if (roh !== null && JSON.stringify(JSON.parse(roh)) === JSON.stringify(s)) sag('Auggie', 'Hooks bereits eingetragen');
+  else {
+    if (roh !== null) sichere(auggieDatei);
+    schreibe(auggieDatei, JSON.stringify(s, null, 2) + '\n');
+    sag('Auggie', `${AUGGIE_HOOKS.length} Hooks in ${vor(auggieDatei)} eingetragen (Korrektur-Erkennung beim Prompt gibt es bei Auggie nicht)`);
+  }
+  auggieRegelSchreiben();
+}
+
+// Auggie liest die globale CLAUDE.md nicht: die Arbeitsanweisung steht in einer Regeldatei neben seiner settings.json (rules/brain.md).
+// Die Datei gehört dem Kit und wird bei einem Update ersetzt (alte Fassung als Sicherung daneben).
+function auggieRegelSchreiben() {
+  const baustein = fs.readFileSync(path.join(__dirname, 'CLAUDE-baustein.md'), 'utf8').replace(/\{\{VAULT\}\}/g, vor(vault)).trim();
+  const neu = `---\ntype: always_apply\n---\n${BLOCK_START}\n${baustein}\n${BLOCK_END}\n`;
+  if (lies(auggieRegel) === neu) { sag('Auggie', 'Regeldatei bereits aktuell'); return; }
+  sichere(auggieRegel);
+  schreibe(auggieRegel, neu);
+  sag('Auggie', `Arbeitsanweisung in ${vor(auggieRegel)} geschrieben`);
+}
+
+function codexEintragen() {
+  if (/\s/.test(vor(process.execPath)) || /\s/.test(vor(vault))) { sag('FEHLER', 'Codex nicht eingebunden: Node- oder Vault-Pfad enthält Leerzeichen (Codex-Hook-Befehle unter Windows brauchen Pfade ohne Leerzeichen)'); process.exitCode = 1; return; }
+  const roh = lies(codexHooksDatei);
+  let s = {};
+  if (roh !== null) { try { s = JSON.parse(roh); } catch { sag('FEHLER', `${codexHooksDatei} ist kein gültiges JSON: Codex nicht eingebunden`); process.exitCode = 1; return; } }
+  settingsEntfernen(s, istCodexHook); // vorhandene Brain-Hooks (auch mit altem Pfad) ersetzen, fremde Hooks bleiben
+  s.description = s.description || 'Gemeinsames Brain (Wissens-Vault): Projektkontext, gezielte Suche, Pflegeerinnerung und geschwärzte Codex-Sicherung.';
+  s.hooks = s.hooks || {};
+  for (const h of CODEX_HOOKS) {
+    const eintrag = { type: 'command', command: codexBefehl(), timeout: h.timeout, ...(h.kontext ? { additionalContextLimit: 2500 } : {}) };
+    s.hooks[h.event] = [...(s.hooks[h.event] || []), { hooks: [eintrag] }];
+  }
+  if (roh !== null && JSON.stringify(JSON.parse(roh)) === JSON.stringify(s)) { sag('Codex', 'Hooks bereits eingetragen'); }
+  else {
+    if (roh !== null) sichere(codexHooksDatei);
+    schreibe(codexHooksDatei, JSON.stringify(s, null, 2) + '\n');
+    sag('Codex', `${CODEX_HOOKS.length} Hooks in ${vor(codexHooksDatei)} eingetragen`);
+  }
+  blockSchreiben(codexMd, 'AGENTS-baustein.md', 'AGENTS.md');
+  sag('Hinweis', 'Codex: neue Hook-Definitionen einmal mit /hooks prüfen und freigeben, erst dann laufen sie. Schreibzugriff auf den Vault gibt die Sandbox nur, wenn der Vault dort als beschreibbarer Ordner eingetragen ist (Codex-Konfiguration, z. B. writable_roots); das ändert das Kit nicht.');
+}
+
+// Antigravity (agy) liest globale Regeln aus ~/.gemini/GEMINI.md; Hooks sind nicht eingebunden, die Regeln tragen die ganze Anbindung.
+function antigravityEintragen() {
+  blockSchreiben(antigravityMd, 'AGENTS-baustein.md', 'GEMINI.md');
 }
 
 // Frage bei interaktiver Installation; ohne Terminal gilt der Standardwert.
@@ -194,6 +258,22 @@ function mitAuggie() {
   return frage(`Auggie (Augment) erkannt${erkannt ? '' : ' nicht'}. Hooks auch dafür eintragen (${vor(auggieDatei)})?`, erkannt);
 }
 
+function mitCodex() {
+  if (hat('--codex')) return true;
+  if (hat('--ohne-codex') || hat('--ohne-hooks')) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false; // ohne Terminal nie raten
+  const erkannt = fs.existsSync(codexDir);
+  return frage(`Codex ${erkannt ? 'erkannt' : 'nicht erkannt'}. Hooks und Arbeitsanweisung auch dafür eintragen (${vor(codexDir)})?`, erkannt);
+}
+
+function mitAntigravity() {
+  if (hat('--antigravity')) return true;
+  if (hat('--ohne-antigravity') || hat('--ohne-hooks')) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false; // ohne Terminal nie raten
+  const erkannt = fs.existsSync(path.dirname(antigravityMd));
+  return frage(`Antigravity ${erkannt ? 'erkannt' : 'nicht erkannt'}. Arbeitsanweisung auch dafür eintragen (${vor(antigravityMd)})?`, erkannt);
+}
+
 // ── CLAUDE.md ────────────────────────────────────────────────────────────────────
 function blockEntfernen(text) {
   const a = text.indexOf(BLOCK_START), b = text.indexOf(BLOCK_END);
@@ -201,17 +281,18 @@ function blockEntfernen(text) {
   return (text.slice(0, a).replace(/\s+$/, '') + '\n' + text.slice(b + BLOCK_END.length).replace(/^\s+/, '\n')).replace(/^\n+/, '');
 }
 
-function claudeMdSchreiben() {
-  const baustein = fs.readFileSync(path.join(__dirname, 'CLAUDE-baustein.md'), 'utf8').replace(/\{\{VAULT\}\}/g, vor(vault)).trim();
+function blockSchreiben(datei, bausteinName, anzeige) {
+  const baustein = fs.readFileSync(path.join(__dirname, bausteinName), 'utf8').replace(/\{\{VAULT\}\}/g, vor(vault)).trim();
   const block = `${BLOCK_START}\n${baustein}\n${BLOCK_END}\n`;
-  const alt = lies(claudeMd) || '';
+  const alt = lies(datei) || '';
   const a = alt.indexOf(BLOCK_START), b = alt.indexOf(BLOCK_END);
   const neu = a > -1 && b > a ? alt.slice(0, a) + block + alt.slice(b + BLOCK_END.length).replace(/^\r?\n/, '') : (alt ? alt.replace(/\s+$/, '') + '\n\n' : '') + block;
-  if (neu === alt) { sag('CLAUDE.md', 'Block bereits aktuell'); return; }
-  sichere(claudeMd);
-  schreibe(claudeMd, neu);
-  sag('CLAUDE.md', `Arbeitsanweisung ${a > -1 ? 'aktualisiert' : 'ergänzt'} in ${vor(claudeMd)}`);
+  if (neu === alt) { sag(anzeige, 'Block bereits aktuell'); return; }
+  sichere(datei);
+  schreibe(datei, neu);
+  sag(anzeige, `Arbeitsanweisung ${a > -1 ? 'aktualisiert' : 'ergänzt'} in ${vor(datei)}`);
 }
+const claudeMdSchreiben = () => blockSchreiben(claudeMd, 'CLAUDE-baustein.md', 'CLAUDE.md');
 
 // ── Aufgabe ──────────────────────────────────────────────────────────────────────
 function aufgabe() {
@@ -243,9 +324,15 @@ function pruefen() {
   }
   // Auggie liest die globale CLAUDE.md nicht: dort zählt eine Regeldatei neben seiner settings.json (rules/brain.md)
   const imClaudeMd = (lies(claudeMd) || '').includes(BLOCK_START);
-  const auggieRegel = path.join(path.dirname(auggieDatei), 'rules', 'brain.md');
   const inAuggieRegel = (lies(auggieRegel) || '').includes(vor(vault));
   ok(imClaudeMd || inAuggieRegel, `Arbeitsanweisung in ${[imClaudeMd && 'der globalen CLAUDE.md', inAuggieRegel && 'den Auggie-Regeln (rules/brain.md)'].filter(Boolean).join(' und ') || 'der globalen CLAUDE.md'}`, 'node installieren.js ausführen');
+  let c2 = null; try { c2 = JSON.parse(lies(codexHooksDatei) || 'null'); } catch { /* ungültig */ }
+  if (c2 || hat('--codex')) {
+    const n = CODEX_HOOKS.filter(h => ((c2 && c2.hooks && c2.hooks[h.event]) || []).some(g => (g.hooks || []).some(x => x.command === codexBefehl()))).length;
+    ok(n === CODEX_HOOKS.length, `Codex-Hooks (${n} von ${CODEX_HOOKS.length}, Pfad passt zum Vault; Freigabe in Codex mit /hooks)`, 'node installieren.js --codex ausführen');
+    ok((lies(codexMd) || '').includes(BLOCK_START), 'Arbeitsanweisung in der Codex-AGENTS.md', 'node installieren.js --codex ausführen');
+  }
+  if ((lies(antigravityMd) || '').includes(BLOCK_START) || hat('--antigravity')) ok((lies(antigravityMd) || '').includes(BLOCK_START), 'Arbeitsanweisung in der Antigravity-GEMINI.md', 'node installieren.js --antigravity ausführen');
   const st = spawnSync('schtasks', ['/Query', '/TN', 'Brain-Sitzungen-verdichten'], { encoding: 'utf8', windowsHide: true });
   ok(st.status === 0, 'Windows-Aufgabe Brain-Sitzungen-verdichten', 'optional: node installieren.js --aufgabe');
   const letzter = lies(path.join(vault, '_meta', 'state', 'verdichten-letzter.json'));
@@ -267,6 +354,19 @@ function deinstallieren() {
     const n = a ? settingsEntfernen(a, istAuggieHook) : 0;
     if (n) { sichere(auggieDatei); schreibe(auggieDatei, JSON.stringify(a, null, 2) + '\n'); sag('Auggie', `${n} Brain-Hook(s) entfernt`); }
   }
+  if (lies(auggieRegel) !== null && lies(auggieRegel).includes(BLOCK_START)) { sichere(auggieRegel); if (!trocken) fs.rmSync(auggieRegel); sag('Auggie', 'Regeldatei rules/brain.md entfernt'); }
+  const croh = lies(codexHooksDatei);
+  if (croh !== null) {
+    let c; try { c = JSON.parse(croh); } catch { c = null; }
+    const n = c ? settingsEntfernen(c, istCodexHook) : 0;
+    if (n) { sichere(codexHooksDatei); schreibe(codexHooksDatei, JSON.stringify(c, null, 2) + '\n'); sag('Codex', `${n} Brain-Hook(s) entfernt`); }
+  }
+  const cmd = lies(codexMd);
+  const cohne = cmd === null ? null : blockEntfernen(cmd);
+  if (cohne !== null) { sichere(codexMd); schreibe(codexMd, cohne); sag('AGENTS.md', 'Block entfernt'); }
+  const gmd = lies(antigravityMd);
+  const gohne = gmd === null ? null : blockEntfernen(gmd);
+  if (gohne !== null) { sichere(antigravityMd); schreibe(antigravityMd, gohne); sag('GEMINI.md', 'Block entfernt'); }
   const md = lies(claudeMd);
   const ohne = md === null ? null : blockEntfernen(md);
   if (ohne !== null) { sichere(claudeMd); schreibe(claudeMd, ohne); sag('CLAUDE.md', 'Block entfernt'); } else sag('CLAUDE.md', 'kein Block vorhanden');
@@ -284,6 +384,8 @@ function main() {
   gitAnlegen();
   if (!hat('--ohne-hooks')) hooksEintragen(); else sag('Hooks', 'übersprungen (--ohne-hooks)');
   if (mitAuggie()) auggieEintragen(); else sag('Auggie', 'nicht eingebunden (nachholen: node installieren.js --auggie)');
+  if (mitCodex()) codexEintragen(); else sag('Codex', 'nicht eingebunden (nachholen: node installieren.js --codex)');
+  if (mitAntigravity()) antigravityEintragen(); else sag('Antigravity', 'nicht eingebunden (nachholen: node installieren.js --antigravity)');
   if (!hat('--ohne-claude-md')) claudeMdSchreiben(); else sag('CLAUDE.md', 'übersprungen (--ohne-claude-md)');
   aufgabe();
   console.log('\nFertig. Neue Claude-Code-Sitzungen laden den Vault automatisch. Kontrolle: node installieren.js --pruefen');

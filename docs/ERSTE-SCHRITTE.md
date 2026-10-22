@@ -96,7 +96,10 @@ legt die Windows-Aufgabe `Brain-Sitzungen-verdichten` an (täglich 21:30 Uhr, ve
 
 - Der **Start-Hook** meldet, wenn der Verdichtungslauf ausblieb oder Probleme hatte.
 - Ein **Arbeitsweise-Review** (`_global/arbeitsweise-reviews/`) fasst Korrekturen, Hook-Ereignisse, Kosten und die Vault-Nutzung zusammen und wird einmal gemeldet. Wer mehr als Schlüsselwörter erkennen will, stellt `"reviewModus": "modell"` in `brain.config.json` ein (ein Claude-Aufruf alle 14 Tage).
-- **Auggie:** Wer auch Augment nutzt, bejaht die Frage bei der Installation (oder ruft `node installieren.js --auggie` auf). Auggie-Sitzungen landen dann im selben Vault und werden vom selben Verdichtungslauf verarbeitet.
+- **Auggie:** Wer auch Augment nutzt, bejaht die Frage bei der Installation (oder ruft `node installieren.js --auggie` auf). Auggie-Sitzungen landen dann im selben Vault und werden vom selben Verdichtungslauf verarbeitet. Die Arbeitsanweisung schreibt die Installation nach `~/.augment/rules/brain.md`.
+- **Codex:** `node installieren.js --codex` (oder die Frage bejahen) trägt Hooks und Arbeitsanweisung in `~/.codex` ein. Danach in Codex einmal `/hooks` öffnen und freigeben. Damit Codex auch in den Vault schreiben darf, muss seine Sandbox den Vault als beschreibbaren Ordner kennen.
+- **Antigravity (agy):** `node installieren.js --antigravity` ergänzt `~/.gemini/GEMINI.md` um die Arbeitsanweisung (nur Regeln, keine Hooks).
+- Alle Agenten dürfen gleichzeitig in den Vault schreiben; Sperren, atomares Schreiben und die Regeln der Konventionen gelten für alle.
 - Der **Prüfbericht** (`_meta/generiert/vault-pruefung.md`) zeigt defekte Links, fehlende Angaben und Verdacht auf Geheimnisse.
 
 Wenn etwas nicht wie beschrieben läuft: [BETRIEB.md](BETRIEB.md), Abschnitt „Probleme“.

@@ -17,7 +17,7 @@ Der Vault `{{VAULT}}` ist die maßgebliche Wissensquelle für Entscheidungen und
 - Entscheidungen nie überschreiben: neue anlegen, alte auf `status: ersetzt` setzen und `ersetzt:` verlinken. Falsches direkt berichtigen, keine Korrektur-Anhänge. Widersprüche zu Entscheidungen nicht still auflösen, sondern in `offen/` benennen und dem Nutzer nennen.
 - `_index.md` klein halten (Zweck, Stand, Tech, Links, aktuell offen, unter 4 KB), keine Entscheidungslisten darin.
 - Keine Geheimnisse, keine personenbezogenen Daten. Ordner `private` (und was in `brain.config.json` unter `ausgenommen` steht): nichts in den Vault schreiben.
-- Mehrere Sitzungen arbeiten parallel im Vault: neue Dateien nur anlegen, wenn der Name nicht existiert; bestehende mit Edit ändern, nie komplett neu schreiben.
+- Mehrere Sitzungen und andere Agenten (Auggie, Codex, Antigravity) arbeiten parallel im Vault: neue Dateien nur anlegen, wenn der Name nicht existiert; bestehende mit Edit ändern, nie komplett neu schreiben.
 - Notizen mit `erzeugt: automatisch` stammen vom Verdichtungslauf; Herkunft und Einordnung darin sind nicht von Hand geprüft.
 
 ## Sitzungen

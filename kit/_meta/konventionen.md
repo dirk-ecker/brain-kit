@@ -99,10 +99,10 @@ Der Vault ist ein lokales Git-Repo ohne Remote (`.gitignore`: `_meta/state/`, `_
 
 ## Parallele Sitzungen
 
-Mehrere Claude-Sitzungen und Skriptläufe arbeiten gleichzeitig im Vault. Regeln:
-- Hooks arbeiten nur mit der eigenen Sitzungs-ID (Rohdatei `JJJJ-MM-TT-<id8>.txt`, Stop-Marker je Sitzung); Skriptdateien und Zustandsdateien werden atomar geschrieben (`schreibeAtomar`).
+Mehrere Sitzungen und Skriptläufe arbeiten gleichzeitig im Vault, auch verschiedener Agenten (Claude Code, Auggie, Codex, Antigravity): alle schreiben in denselben Vault und halten sich an dieselben Regeln. Regeln:
+- Hooks arbeiten nur mit der eigenen Sitzungs-ID (Rohdatei `JJJJ-MM-TT-<id8>.txt` bei Claude und Auggie, `JJJJ-MM-TT-codex<hash>.txt` bei Codex, Stop-Marker je Sitzung); Skriptdateien und Zustandsdateien werden atomar geschrieben (`schreibeAtomar`).
 - Skripte mit Schreibzugriff auf gemeinsame Dateien nehmen eine Sperre (`sperre`, Lockdatei in `_meta/state/`; veraltet, wenn der Prozess tot oder älter als das Limit ist): `vault-pruefung` und `sitzungen-verdichten`.
-- Notizen: neue Datei nur anlegen, wenn der Name nicht existiert; bestehende mit Edit ändern, nie komplett neu schreiben (Edit schlägt fehl, wenn die Datei seit dem Lesen geändert wurde: neu lesen, wiederholen). Gilt auch für `_index.md` („Aktuell offen“).
+- Notizen: neue Datei nur anlegen, wenn der Name nicht existiert (exklusiv, Modus `wx` bzw. CreateNew); bestehende frisch lesen und gezielt mit eindeutigem Ausgangstext ändern, nie komplett neu schreiben (die Änderung schlägt fehl, wenn die Datei seit dem Lesen geändert wurde: neu lesen, wiederholen). Gilt auch für `_index.md` („Aktuell offen“) und für Agenten ohne Hooks.
 - Läufe der Automatisierung setzen `BRAIN_AUTOMATION=1`; die Hooks beenden sich dann sofort.
 
 ## Kurzfassung und Themen

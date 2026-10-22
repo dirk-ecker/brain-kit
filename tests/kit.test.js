@@ -15,12 +15,12 @@ const vor = p => p.replace(/\\/g, '/');
 // Frische Umgebung: Vault, Projektordner, Einstellungen und CLAUDE.md liegen in einem Temp-Ordner
 function umgebung() {
   const wurzel = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-kit-'));
-  const env = { wurzel, vault: path.join(wurzel, 'vault'), projekte: path.join(wurzel, 'projects'), settings: path.join(wurzel, 'settings.json'), auggie: path.join(wurzel, 'augment', 'settings.json'), md: path.join(wurzel, 'CLAUDE.md') };
+  const env = { wurzel, vault: path.join(wurzel, 'vault'), projekte: path.join(wurzel, 'projects'), settings: path.join(wurzel, 'settings.json'), auggie: path.join(wurzel, 'augment', 'settings.json'), codex: path.join(wurzel, 'codex'), agy: path.join(wurzel, 'gemini', 'GEMINI.md'), md: path.join(wurzel, 'CLAUDE.md') };
   fs.mkdirSync(env.projekte, { recursive: true });
   return env;
 }
 function installieren(env, ...extra) {
-  const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--vault', env.vault, '--projekte', env.projekte, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, ...extra], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--vault', env.vault, '--projekte', env.projekte, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy, ...extra], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   return r.stdout;
 }
@@ -30,7 +30,15 @@ function skript(env, name, args = [], opts = {}) {
 function hook(env, modus, eingabe, extraEnv = {}) {
   return skript(env, 'hook-vault.js', [modus], { input: JSON.stringify(eingabe), env: { ...process.env, ...extraEnv } });
 }
-const aufraeumen = env => fs.rmSync(env.wurzel, { recursive: true, force: true });
+// Hooks starten Wartungsprozesse losgelöst im Hintergrund; sie können beim Aufräumen noch Dateien anlegen, daher wiederholen.
+function aufraeumen(env) {
+  for (let i = 0; ; i++) {
+    try { return fs.rmSync(env.wurzel, { recursive: true, force: true }); } catch (e) {
+      if (i >= 20) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    }
+  }
+}
 const brainHooks = s => Object.values(s.hooks || {}).flat().flatMap(g => g.hooks).filter(h => /hook-vault\.js/.test(h.command));
 
 test('Installer legt Vault-Gerüst, Konfiguration und Git-Repo an', () => {
@@ -84,7 +92,7 @@ test('Deinstallation entfernt Hooks und Block, lässt Vault und fremde Hooks ste
     fs.writeFileSync(env.settings, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo fremd' }] }] } }));
     fs.writeFileSync(env.md, '# Meine Regeln\n');
     installieren(env);
-    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     const s = JSON.parse(fs.readFileSync(env.settings, 'utf8'));
     assert.equal(brainHooks(s).length, 0);
@@ -326,9 +334,9 @@ test('Auggie: ohne Terminal keine Rückfrage, --auggie trägt ein (idempotent, F
     const vorher = fs.readFileSync(env.auggie, 'utf8');
     installieren(env, '--auggie');
     assert.equal(fs.readFileSync(env.auggie, 'utf8'), vorher, 'zweite Installation ändert nichts');
-    const d = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    const d = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy], { encoding: 'utf8' });
     assert.match(d.stdout, /OK\s+Auggie-Hooks \(4 von 4/);
-    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--deinstallieren', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     a = lesen();
     assert.equal(a.model, 'x');
@@ -406,7 +414,7 @@ test('Diagnose läuft durch', () => {
   const env = umgebung();
   try {
     installieren(env);
-    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), '--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /OK\s+Hooks in settings\.json \(4 von 4/);
     assert.match(r.stdout, /OK\s+Arbeitsanweisung/);
@@ -417,7 +425,7 @@ test('Diagnose akzeptiert die Arbeitsanweisung in den Auggie-Regeln', () => {
   const env = umgebung();
   try {
     installieren(env, '--ohne-claude-md');
-    const args = ['--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie];
+    const args = ['--pruefen', '--vault', env.vault, '--settings', env.settings, '--claude-md', env.md, '--auggie-settings', env.auggie, '--codex-dir', env.codex, '--antigravity-md', env.agy];
     let r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), ...args], { encoding: 'utf8' });
     assert.match(r.stdout, /FEHLT\s+Arbeitsanweisung/);
     const regel = path.join(path.dirname(env.auggie), 'rules', 'brain.md');
