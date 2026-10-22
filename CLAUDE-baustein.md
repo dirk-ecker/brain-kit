@@ -6,7 +6,7 @@ Der Vault `{{VAULT}}` ist die maßgebliche Wissensquelle für Entscheidungen und
 
 - Der SessionStart-Hook liefert nur `projekte/<projekt>/_index.md` (klein) und die Titel der offenen Punkte; der Prompt-Hook ergänzt zu einem Prompt die wenigen sicheren Treffer. Nichts weiter vorab lesen, nie den ganzen Vault, nie `generiert/`.
 - Vor einer Entscheidung oder Änderung gezielt suchen: `node {{VAULT}}/_meta/skripte/vault-suche.js <begriff> [--alle] [--typ entscheidung|erkenntnis|offen|lauf] [-n 10]`. `--gueltig` listet alle gültigen Entscheidungen mit Kurzfassung, `--themen` das Themenvokabular, `--thema X` alle Notizen zu einem Thema, `--kette <begriff>` die Ersetzungskette, `--auch-ersetzte` und `--archiv` für Ersetztes und Archiviertes. Treffer beachten oder den Widerspruch benennen. Keine Treffer kurz nennen.
-- `offen/`-Notizen und Treffer nur lesen, wenn die Aufgabe dazu passt.
+- `offen/`-Notizen und Treffer nur lesen, wenn die Aufgabe dazu passt. Offene Aufgaben zum Wiederaufsetzen (Notiz mit `aufgabe: true` und `naechster-schritt:` im Kopf) zeigt der Start-Hook samt nächstem Schritt; bei Fortschritt den Schritt aktualisieren, bei Abschluss `status: erledigt`.
 
 ## Festhalten (sofort, im Moment der Entscheidung)
 

@@ -2,7 +2,7 @@
 
 Ein Wissens-Vault („Brain“) für Claude Code. Claude hält Entscheidungen, Erkenntnisse und offene Punkte aus allen deinen Projekten als Markdown-Notizen fest, findet sie bei der nächsten Aufgabe wieder und verdichtet ältere Sitzungen automatisch. Der Vault ist ein normaler Ordner und lässt sich auch in Obsidian lesen. Dieses Repo enthält nur das **Werkzeug**, keine Inhalte.
 
-> Version 0.2.0 · **nur Windows** · **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster) · privates Repo, keine Lizenz hinterlegt
+> Version 0.2.1 · **nur Windows** · **deutsch** (Konventionen, Vorlagen, Prompts und Erkennungsmuster) · privates Repo, keine Lizenz hinterlegt
 
 ## Wozu
 

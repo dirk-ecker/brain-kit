@@ -37,12 +37,18 @@ function sessionStart(input) {
 }
 
 // Zählt Datei-Änderungen (file_changes, nur bei save-file/str-replace-editor/remove-files vorhanden) je Konversation.
+// ch.path kommt für Dateien innerhalb des Workspaces relativ zur Wurzel (so übergeben Auggies Datei-Werkzeuge Pfade);
+// nur Pfade außerhalb des Workspaces (z. B. das Vault) sind schon absolut. classify() erwartet absolute Pfade,
+// deshalb hier erst gegen workspace_roots auflösen, sonst verfehlen alle Projekt-Edits den Abgleich (nie gezählt).
 function postToolUse(input) {
-  const p = projectOf(wurzel(input));
+  const root = wurzel(input);
+  const p = projectOf(root);
   if (!p || !Array.isArray(input.file_changes) || !input.file_changes.length) return;
   const st = loadState(input.conversation_id);
   for (const ch of input.file_changes) {
-    const kind = ch && ch.path && classify(ch.path, p);
+    if (!ch || !ch.path) continue;
+    const abs = path.isAbsolute(ch.path) ? ch.path : path.join(root, ch.path);
+    const kind = classify(abs, p);
     if (kind === 'vault') st.vaultWrites++;
     else if (kind === 'projekt') st.projektEdits++;
   }

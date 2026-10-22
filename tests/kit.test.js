@@ -120,6 +120,55 @@ test('Start-Hook: Hinweis für neues Projekt, Stille außerhalb der Projekte und
   } finally { aufraeumen(env); }
 });
 
+test('Start-Hook: Aufgaben (aufgabe: true) stehen mit nächstem Schritt vor den übrigen offenen Punkten', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const projekt = path.join(env.vault, 'projekte', 'demo-app');
+    const offen = path.join(projekt, 'offen');
+    fs.mkdirSync(offen, { recursive: true });
+    fs.writeFileSync(path.join(projekt, '_index.md'), '# demo-app\n\nZweck: Test.\n');
+    fs.writeFileSync(path.join(offen, '2026-10-01-umbau.md'), '---\ntyp: offen\nstatus: offen\naufgabe: true\nnaechster-schritt: "Migration 3 ausführen"\n---\n\n# Umbau\n');
+    fs.writeFileSync(path.join(offen, '2026-10-01-frage.md'), '---\ntyp: offen\nstatus: offen\n---\n\n# Frage\n');
+    fs.writeFileSync(path.join(offen, '2026-10-01-fertig.md'), '---\ntyp: offen\nstatus: erledigt\naufgabe: true\nnaechster-schritt: "nichts"\n---\n\n# Fertig\n');
+    const r = hook(env, 'start', { cwd: vor(path.join(env.projekte, 'demo-app')), session_id: 'abcdef12-0000' });
+    assert.equal(r.status, 0, r.stderr);
+    const kontext = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+    assert.match(kontext, /Offene Aufgaben \(1,[^)]*\):\n- 2026-10-01-umbau → Migration 3 ausführen/);
+    assert.match(kontext, /2026-10-01-frage/);
+    assert.doesNotMatch(kontext, /2026-10-01-fertig/, 'erledigte Aufgabe wird nicht gezeigt');
+    assert.ok(kontext.indexOf('Offene Aufgaben') < kontext.indexOf('2026-10-01-frage'), 'Aufgaben zuerst');
+  } finally { aufraeumen(env); }
+});
+
+test('Git-Sicherung: kein Repo, Initialisierung, Commit, unveränderter Stand, Sperre, Ignore-Regeln', () => {
+  const env = umgebung();
+  try {
+    const skripte = path.join(env.vault, '_meta', 'skripte');
+    fs.mkdirSync(skripte, { recursive: true });
+    fs.copyFileSync(path.join(KIT, 'kit', '_meta', 'skripte', 'sitzung-lib.js'), path.join(skripte, 'sitzung-lib.js'));
+    const lib = require(path.join(skripte, 'sitzung-lib.js'));
+    const { createBackup } = require(path.join(KIT, 'kit', '_meta', 'skripte', 'vault-sicherung.js'));
+    const sichern = createBackup(env.vault, lib);
+    assert.equal(sichern().fehler, 'KEIN_REPOSITORY');
+    fs.writeFileSync(path.join(env.vault, 'notiz.md'), 'Erster Stand');
+    const r = sichern('Brain: Test', true);
+    assert.equal(r.ok, true, r.meldung);
+    assert.ok(r.commit);
+    assert.ok(fs.existsSync(path.join(env.vault, '.gitignore')));
+    assert.equal(sichern().unveraendert, true);
+    fs.writeFileSync(path.join(env.vault, 'notiz.md'), 'Zweiter Stand');
+    assert.ok(sichern().commit, 'Folgecommit');
+    const frei = lib.sperre('git-sicherung', 10);
+    assert.ok(frei);
+    assert.equal(sichern().uebersprungen, 'Sperre belegt');
+    frei();
+    const dateien = spawnSync('git', ['-C', env.vault, 'ls-files'], { encoding: 'utf8', windowsHide: true });
+    assert.equal(dateien.status, 0);
+    assert.doesNotMatch(dateien.stdout, /_meta\/(state|logs)\//);
+  } finally { aufraeumen(env); }
+});
+
 // Hilfsmittel: kleiner Sitzungsverlauf im Format von Claude Code
 function verlauf(env, projekt, edits = 0) {
   const cwd = vor(path.join(env.projekte, projekt));

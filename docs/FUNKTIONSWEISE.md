@@ -29,7 +29,7 @@ Alle laufen über `_meta/skripte/hook-vault.js <modus>`, lesen das Hook-JSON von
 
 | Hook | Modus | Verhalten |
 |---|---|---|
-| SessionStart | `start` | Nur in Projektordnern. Liefert `projekte/<p>/_index.md` (höchstens 60 Zeilen), die Titel offener Punkte (nicht `erledigt`, `veraltet`, `verworfen`) und Hinweise: Kuration fällig, ab 10 unverarbeiteten Rohsitzungen, Verdichtungslauf ausgeblieben (über 3 Tage) oder mit Problemen, Hook-Fehler (einmal), Prüfbefunde, neuer Review (einmal). Stößt Prüfung, Repo-Sync und Review im Hintergrund an, wenn der Prüfstand älter als 12 Stunden ist. |
+| SessionStart | `start` | Nur in Projektordnern. Liefert `projekte/<p>/_index.md` (höchstens 60 Zeilen), die Titel offener Punkte (nicht `erledigt`, `veraltet`, `verworfen`; Notizen mit `aufgabe: true` im Kopf zuerst, samt `naechster-schritt`) und Hinweise: Kuration fällig, ab 10 unverarbeiteten Rohsitzungen, Verdichtungslauf ausgeblieben (über 3 Tage) oder mit Problemen, Hook-Fehler (einmal), Prüfbefunde, neuer Review (einmal). Stößt Prüfung, Repo-Sync und Review im Hintergrund an, wenn der Prüfstand älter als 12 Stunden ist. |
 | UserPromptSubmit | `prompt` | Bei kurzen Nachrichten mit Korrekturformeln („immer“, „ab jetzt“, „ich hatte gesagt“ …) der Hinweis, die Vorgabe sofort festzuhalten. Zusätzlich höchstens zwei sichere Vault-Treffer zum Prompt (siehe unten). |
 | Stop | `stop` | Mahnt höchstens einmal je Sitzung, wenn mindestens 3 Projektdateien (Edit/Write, ohne `node_modules`, `dist`, `.git`) geändert, aber nichts im Vault geschrieben wurde. Marker je Sitzung in `_meta/state/stop-erinnert/`. |
 | SessionEnd | `end` | Sichert die Sitzung als Rohdatei, wenn sie mindestens 2 Nutzernachrichten hat und nicht in einem ausgenommenen Ordner (`private`, `.claude`, einstellbar) lief. Sitzungen außerhalb des Projektordners landen unter `_meta/generiert/sitzungen-roh/` und werden nie verdichtet. |
@@ -86,6 +86,7 @@ Auch wenn nichts zu verdichten ist, laufen Nacharbeiten und Commit (mit `--ausfu
 | `arbeitsweise-review.js` | wöchentlicher Review aus Korrekturen, Hook-Ereignissen, Kosten und Vault-Nutzung (regelbasiert, kostenlos); mit `"reviewModus": "modell"` übernimmt `arbeitsweise-review-modell.js` |
 | `arbeitsweise-review-modell.js` | Review-Alternative mit Claude-Aufruf: wertet die (geschwärzten) Nutzernachrichten aller Sitzungen seit dem letzten Review aus und findet auch Muster ohne Schlüsselwort; alle `reviewTage` (14), Budget `reviewBudgetUsd`, Notiz unter `reviewNotizOrdner`; ausgenommene Ordner und der Vault selbst werden nie gelesen |
 | `aufgabe-einrichten.ps1` | legt die Windows-Aufgabe an |
+| `vault-sicherung.js` | lokale Git-Sicherung des Vaults (Sperre, Fehlerstatus in `_meta/state/git-sicherung.json`, Log); der Verdichtungslauf ruft sie vor und nach dem Lauf, `--einrichten` initialisiert ein Repo |
 | `sitzung-lib.js` | gemeinsame Bibliothek: Verdichten und Schwärzen, Projektzuordnung, Sperre, atomares Schreiben |
 
 ## Die Vault-Prüfung

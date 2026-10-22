@@ -194,15 +194,11 @@ function batchLaufen(projekt, dateien) {
 }
 
 // Der Vault ist ein lokales Git-Repo (ohne Remote): Vor und nach dem Lauf je ein Commit, damit jede Änderung der Automatik
-// nachvollziehbar und umkehrbar ist und von Änderungen laufender Sitzungen getrennt bleibt. Fehlt .git, passiert nichts.
+// nachvollziehbar und umkehrbar ist und von Änderungen laufender Sitzungen getrennt bleibt. Fehlt .git, passiert nichts. Sperre, Fehlerstatus (`_meta/state/git-sicherung.json`) und Log über vault-sicherung.js.
 function gitSicherung(nachricht) {
   if (!fs.existsSync(path.join(VAULT, '.git'))) return;
-  const g = (...a) => spawnSync('git', ['-C', VAULT, '-c', 'user.name=Brain-Automation', '-c', 'user.email=brain@localhost', ...a], { encoding: 'utf8', windowsHide: true });
-  const add = g('add', '-A');
-  if (add.status !== 0) { log('git_fehler', { schritt: 'add', meldung: String(add.stderr).slice(0, 200) }); return; }
-  if (g('diff', '--cached', '--quiet').status === 0) return; // nichts zu sichern
-  const c = g('commit', '-q', '-m', nachricht);
-  log(c.status === 0 ? 'git_commit' : 'git_fehler', { nachricht, meldung: c.status === 0 ? undefined : String(c.stderr).slice(0, 200) });
+  const ergebnis = require('./vault-sicherung').sichern(nachricht);
+  if (!ergebnis.ok) { console.error('Git-Sicherung fehlgeschlagen: ' + ergebnis.meldung); process.exitCode = 1; }
 }
 
 // Log über 5 MB: in eine datierte Datei verschieben (Schreiber öffnen die Datei je Eintrag neu, ein Fehlschlag ist harmlos).

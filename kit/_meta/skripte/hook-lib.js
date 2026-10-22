@@ -74,7 +74,19 @@ function baueStart(cwd, sitzungId, log) {
   else parts.push(`Zu diesem Projekt gibt es noch keinen Vault-Ordner. Lege projekte/${p.vault}/ mit _index.md an.`);
   try {
     const offenDir = path.join(base, 'offen');
-    const offen = fs.readdirSync(offenDir).filter(f => f.endsWith('.md') && !f.startsWith('_') && !erledigt(path.join(offenDir, f))).map(f => f.replace(/\.md$/, ''));
+    const dateien = fs.readdirSync(offenDir).filter(f => f.endsWith('.md') && !f.startsWith('_') && !erledigt(path.join(offenDir, f)));
+    // Aufgaben (Kopf: aufgabe: true, naechster-schritt: "...") zuerst und mit nächstem Schritt, der Rest nur als Titel.
+    const aufgaben = [], offen = [];
+    for (const f of dateien) {
+      const name = f.replace(/\.md$/, '');
+      let kopf = '';
+      try { kopf = fs.readFileSync(path.join(offenDir, f), 'utf8').slice(0, 800); } catch { /* unlesbar: als Punkt listen */ }
+      if (/^aufgabe:\s*true\s*$/m.test(kopf)) {
+        const schritt = (kopf.match(/^naechster-schritt:\s*"?(.*?)"?\s*$/m) || [])[1];
+        aufgaben.push(schritt ? `${name} → ${schritt}` : name);
+      } else offen.push(name);
+    }
+    if (aufgaben.length) parts.push(`Offene Aufgaben (${aufgaben.length}, zum Wiederaufsetzen; Notiz in projekte/${p.vault}/offen/):\n- ${aufgaben.join('\n- ')}`);
     if (offen.length) parts.push(`Offene Punkte (${offen.length}, projekte/${p.vault}/offen/, nur bei passender Aufgabe lesen): ${offen.join(', ')}`);
   } catch { /* kein offen/-Ordner */ }
   const warn = [];

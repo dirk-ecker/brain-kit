@@ -54,6 +54,8 @@ themen: [thema-a, thema-b]    # Pflicht dort ebenfalls: 2 bis 5 Suchbegriffe, kl
 ---
 ```
 
+Aufgaben zum Wiederaufsetzen: eine `offen/`-Notiz mit `aufgabe: true` und `naechster-schritt: "konkreter nächster Handgriff"` im Kopf. Der Start-Hook zeigt sie vor den übrigen offenen Punkten samt nächstem Schritt. Bei Fortschritt `naechster-schritt` aktualisieren, bei Abschluss `status: erledigt`.
+
 `herkunft` sagt, worauf die Kernaussage beruht: `gemessen` (Lauf, Zahlen, Belege in der Notiz), `entschieden` (Vorgabe oder Entscheidung des Nutzers), `hypothese` (Annahme ohne Datenbeleg), `gelesen` (aus Code oder Doku gelesen, nicht selbst geprüft).
 
 Zweifelsfälle: `entschieden` nur bei belegter Entscheidung oder Vorgabe des Nutzers oder Teams. Zeichnet eine Notiz bestehenden Code oder bestehende Doku nach (auch unter `entscheidungen/`), ist sie `gelesen`. Pläne und Vorschläge ohne Bestätigung sind `hypothese`.
@@ -82,6 +84,7 @@ Zweifelsfälle: `entschieden` nur bei belegter Entscheidung oder Vorgabe des Nut
 | `sync-projekte.js` | meldet Projekte mit neuen Repo-Commits seit der letzten Kuration (`generiert/kuration-faellig.md`, `projekte/<p>/generiert/repo-stand.md`); `--mark <projekt>` nach erledigter Kuration |
 | `arbeitsweise-review.js` | wertet Korrekturen und Hook-Ereignisse aus (regelbasiert, kostenlos), legt höchstens wöchentlich eine Review-Notiz unter `_global/arbeitsweise-reviews/` an, die der Start-Hook einmal meldet |
 | `kit-exportieren.js` | exportiert das Werkzeug ohne Inhalte nach `brain-kit/kit` (Positivliste, Scan auf persönliche Spuren); danach im Repo brain-kit committen. Nicht Teil des Kits |
+| `vault-sicherung.js` | gemeinsame automatische Git-Sicherung mit Sperre und Fehlerstatus (`_meta/state/git-sicherung.json`); läuft über den Verdichtungslauf, `--einrichten` nur zur Ersteinrichtung |
 | `sitzung-lib.js` | gemeinsame Bibliothek: Verlauf verdichten, Geheimnisse und Kontaktdaten schwärzen (`redact`), Projektzuordnung, Ablageort, `schreibeAtomar`, `sperre`, `unverarbeiteteRoh` |
 
 Die Skripte finden den Vault relativ zu ihrem Ort (`_meta/skripte` → zwei Ebenen höher) und brauchen nur Node.js.
