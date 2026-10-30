@@ -235,6 +235,8 @@ test('Stop-Hook mahnt ab drei Projektdateien genau einmal je Sitzung', () => {
     const eingabe = { cwd: v.cwd, session_id: 'stoptest-1', transcript_path: v.datei };
     assert.match(JSON.parse(hook(env, 'stop', eingabe).stdout).reason, /3 Projektdatei/);
     assert.equal(hook(env, 'stop', eingabe).stdout, '', 'zweiter Aufruf schweigt');
+    assert.equal(hook(env, 'stop', { ...eingabe, stop_hook_active: true }).stdout, '', 'Stop nach Mahnung schweigt');
+    assert.match(fs.readFileSync(path.join(env.vault, '_meta', 'logs', 'automation.log.jsonl'), 'utf8'), /"event":"stop_nachgang"/, 'Nachgang wird protokolliert');
     const wenig = verlauf(env, 'demo-zwei', 2);
     assert.equal(hook(env, 'stop', { cwd: wenig.cwd, session_id: 'stoptest-2', transcript_path: wenig.datei }).stdout, '', 'unter der Schwelle');
   } finally { aufraeumen(env); }
@@ -487,5 +489,21 @@ test('Diagnose akzeptiert die Arbeitsanweisung in den Auggie-Regeln', () => {
     fs.writeFileSync(regel, `Vault ${env.vault.replace(/\\/g, '/')}\n`);
     r = spawnSync(process.execPath, [path.join(KIT, 'installieren.js'), ...args], { encoding: 'utf8' });
     assert.match(r.stdout, /OK\s+Arbeitsanweisung in den Auggie-Regeln/);
+  } finally { aufraeumen(env); }
+});
+
+test('Suche: dritte Stufe findet Umlaut-, Bindestrich- und Pluralvarianten, ohne exakte Treffer zu verändern', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    const dir = path.join(env.vault, '_global');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, '2026-10-30-schnittstellen-tuning.md'), '---\ntyp: erkenntnis\nstatus: gültig\ndatum: 2026-10-30\nherkunft: gemessen\nkurz: "Prüfung der Schnittstellen läuft über den Leerlauf-Timeout."\nthemen: [tooling, tests]\n---\n\n# Schnittstellen-Tuning\n\nDie Prüfung der Schnittstellen dauert zu lange.\n');
+    const suche = (...a) => skript(env, 'vault-suche.js', [...a, '--alle'], { env: { ...process.env, VAULT_SUCHE_QUELLE: 'test' } }).stdout;
+    assert.match(suche('pruefung'), /1 Treffer \(UNSCHARF/, 'ue-Variante');
+    assert.match(suche('leerlauf-timeout'), /1 Treffer \(UND/, 'exakt bleibt exakt');
+    assert.match(suche('schnittstelle'), /1 Treffer \(UND/, 'Teilstring bleibt exakt');
+    assert.match(suche('idle', 'schnittstellen'), /1 Treffer \(ODER/, 'ODER bleibt ODER');
+    assert.match(suche('nichtvorhanden'), /0 Treffer/);
   } finally { aufraeumen(env); }
 });

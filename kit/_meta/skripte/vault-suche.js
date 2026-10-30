@@ -207,8 +207,29 @@ if (opt.verweise) {
   process.exit(0);
 }
 
+// Dritte Stufe, nur wenn UND und ODER nichts fanden (12 % der Suchen im Okt. 2026): Umlaute (ae/oe/ue/ss), Bindestrich/Unterstrich
+// wie Leerzeichen, zusammengeschrieben, Einzelwörter ab 4 Zeichen und einfache Pluralendungen. Der Score bleibt unter 12, damit der
+// Prompt-Hook (Mindestscore 12) davon unberührt bleibt.
+const falte = s => s.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[-_]+/g, ' ');
+function varianten(b) {
+  const f = falte(b).trim(), v = new Set([f, f.replace(/ /g, '')]);
+  for (const w of f.split(' ')) if (w.length >= 4) v.add(w);
+  for (const x of [...v]) if (x.length >= 6) v.add(x.replace(/(en|er|e|n|s)$/, ''));
+  return [...v].filter(x => x.length >= 3);
+}
+function sucheUnscharf(menge) {
+  const vs = opt.begriffe.map(varianten);
+  return menge.map(e => {
+    const text = falte(`${e.titel}\n${e.name}\n${e.themen.join(' ')}\n${e.kurz || ''}\n${e.body}`);
+    let gefunden = 0, score = 0;
+    for (const v of vs) { const n = v.reduce((s, x) => s + text.split(x).length - 1, 0); if (n) { gefunden++; score += Math.min(n, 5); } }
+    return { e, gefunden, score: Math.min(score, 8) };
+  }).filter(x => x.gefunden > 0).sort((a, b) => b.gefunden - a.gefunden || b.score - a.score || b.e.datum.localeCompare(a.e.datum));
+}
+
 let res = suche(eintraege, 'und'), modus = 'UND';
 if (!res.length) { res = suche(eintraege, 'oder'); modus = 'ODER'; }
+if (!res.length) { res = sucheUnscharf(eintraege); modus = 'UNSCHARF'; }
 
 logge('suche', res.length, { verknuepfung: modus, top: res.slice(0, 3).map(x => x.e.r) });
 console.log(`${res.length} Treffer (${modus}${projekt ? ', Projekt ' + projekt : ', alle Projekte'}), zeige ${Math.min(opt.n, res.length)}:`);

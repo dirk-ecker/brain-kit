@@ -56,7 +56,7 @@ function stopMarker(id) {
 }
 
 function stop(input) {
-  if (input.stop_hook_active) return; // Schleifen verhindern
+  const nachgang = !!input.stop_hook_active; // Stop nach einer Mahnung: nie erneut mahnen (Schleife), nur festhalten, ob danach geschrieben wurde
   const p = projectOf(input.cwd);
   if (!p || !input.transcript_path) return;
   let lines;
@@ -75,6 +75,7 @@ function stop(input) {
     }
   }
   const id = String(input.session_id || path.basename(input.transcript_path, '.jsonl'));
+  if (nachgang) return log('stop_nachgang', { projekt: p.vault, sitzung: id.slice(0, 8), dateien: dateien.size, vault_writes: vaultWrites });
   const mahnen = dateien.size >= STOP_MIN_DATEIEN && vaultWrites === 0 && stopMarker(id);
   log('stop_pruefung', { projekt: p.vault, sitzung: id.slice(0, 8), projekt_edits: projektEdits, dateien: dateien.size, vault_writes: vaultWrites, erinnert: mahnen });
   if (mahnen) {

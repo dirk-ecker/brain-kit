@@ -110,9 +110,11 @@ function alsAutomatischMarkieren(rel) {
   const kopf = alt.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!kopf || /^erzeugt:/m.test(kopf[1])) return false;
   const nl = alt.includes('\r\n') ? '\r\n' : '\n';
-  const neu = /^datum:.*$/m.test(kopf[1])
+  let neu = /^datum:.*$/m.test(kopf[1])
     ? alt.replace(/^(datum:.*)$/m, `$1${nl}erzeugt: automatisch`)
     : alt.replace(/^---\r?\n/, `---${nl}erzeugt: automatisch${nl}`);
+  // Sitzungsnotizen kamen ohne status an (Pflichtfeld, 48 Prüfbefunde): fehlt er, setzt das Skript ihn.
+  if (!/^status:/m.test(kopf[1])) neu = /^typ:.*$/m.test(kopf[1]) ? neu.replace(/^(typ:.*)$/m, `$1${nl}status: gültig`) : neu.replace(/^---\r?\n/, `---${nl}status: gültig${nl}`);
   fs.writeFileSync(datei, neu, 'utf8');
   return true;
 }

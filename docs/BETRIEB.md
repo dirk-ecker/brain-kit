@@ -52,7 +52,7 @@ Stellschrauben: `maxSitzungenProLauf` und `budgetUsdProBatch` senken, `modell` w
 | `_meta/state/stop-erinnert/`, `prompt-treffer/` | Marker je Sitzung (nach 14 Tagen aufgeräumt) |
 | `_meta/state/*.lock` | Sperren laufender Skripte |
 
-Häufige Ereignisse im Log: `sessionstart_kontext`, `sessionend_gesichert`, `sessionend_uebersprungen` (mit `grund`: zu kurz, ausgenommen, Verlaufsdatei fehlt, nicht lesbar), `stop_pruefung`, `korrektur_erkannt`, `vault_treffer_injiziert`, `verdichten_start`, `verdichten_batch`, `verdichten_batch_problem`, `verdichten_ende`, `verdichten_nichts`, `vault_pruefung`, `kuration_geprueft`, `review_geschrieben`, `hook_fehler`. Ein Blick ins Log ist der schnellste Weg, ein Verhalten nachzuvollziehen.
+Häufige Ereignisse im Log: `sessionstart_kontext`, `sessionend_gesichert`, `sessionend_uebersprungen` (mit `grund`: zu kurz, ausgenommen, Verlaufsdatei fehlt, nicht lesbar), `stop_pruefung`, `stop_nachgang` (Stop nach einer Mahnung: wurde danach in den Vault geschrieben?), `korrektur_erkannt`, `vault_treffer_injiziert`, `verdichten_start`, `verdichten_batch`, `verdichten_batch_problem`, `verdichten_ende`, `verdichten_nichts`, `vault_pruefung`, `kuration_geprueft`, `review_geschrieben`, `hook_fehler`. Ein Blick ins Log ist der schnellste Weg, ein Verhalten nachzuvollziehen.
 
 ## Probleme
 

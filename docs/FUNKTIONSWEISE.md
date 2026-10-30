@@ -77,7 +77,7 @@ Auch wenn nichts zu verdichten ist, laufen Nacharbeiten und Commit (mit `--ausfu
 | `hook-lib.js` | gemeinsame Bausteine beider Hook-Skripte: Logger (`tool: claude` bzw. `auggie` im Log), Hook-Fehler-Zustand, Wartungsstart, Start-Kontext |
 | `hook-vault-codex.js` | Codex-Adapter (SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd) aus `~/.codex/hooks.json`: begrenzter Startkontext, Suchtreffer je Prompt (höchstens 2, 8 je Sitzung), Pflege-Erinnerung ab 3 erkannten Projekt-Änderungen (nur explizite Dateipfade und `apply_patch`), geschwärzte Sichtnachrichten als Rohsitzung `JJJJ-MM-TT-codex<hash>.txt` (ab 2 Nutzerbeiträgen). Zustand je gehashter Sitzungs-ID in `_meta/state/codex-sessions/`, Sperre je Sitzung. Kein Modellaufruf; das Transkriptformat von Codex gilt als instabil, unbekannte Formate werden protokolliert statt geraten |
 | `prompt-treffer.js` | Baustein des Prompt-Hooks (Treffer zu einem Prompt) |
-| `vault-suche.js` | gezielte Suche: Begriffe, `--gueltig`, `--themen`, `--thema`, `--kette`, `--verweise`, `--typ`, `--alle`, `--archiv` |
+| `vault-suche.js` | gezielte Suche (UND, dann ODER, zuletzt UNSCHARF mit Umlaut-, Bindestrich- und Pluralvarianten): Begriffe, `--gueltig`, `--themen`, `--thema`, `--kette`, `--verweise`, `--typ`, `--alle`, `--archiv` |
 | `sitzungen-verdichten.js` | der Verdichtungslauf |
 | `vault-pruefung.js` | Qualitätsprüfung, schreibt `_meta/generiert/vault-pruefung.md` |
 | `sitzungen-index.js` | `projekte/<p>/sitzungen/_uebersicht.md` |
