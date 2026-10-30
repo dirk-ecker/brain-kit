@@ -507,3 +507,15 @@ test('Suche: dritte Stufe findet Umlaut-, Bindestrich- und Pluralvarianten, ohne
     assert.match(suche('nichtvorhanden'), /0 Treffer/);
   } finally { aufraeumen(env); }
 });
+
+test('Start-Hook: fehlender projektOrdner wird gemeldet, vorhandener bleibt still', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    assert.equal(hook(env, 'start', { cwd: vor(os.tmpdir()), session_id: 'x' }).stdout, '', 'Ordner vorhanden: still');
+    const cfgDatei = path.join(env.vault, '_meta', 'brain.config.json');
+    fs.writeFileSync(cfgDatei, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgDatei, 'utf8')), projektOrdner: vor(path.join(env.wurzel, 'gibt-es-nicht')) }));
+    const r = hook(env, 'start', { cwd: vor(os.tmpdir()), session_id: 'x' });
+    assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /projektOrdner .* existiert nicht/);
+  } finally { aufraeumen(env); }
+});

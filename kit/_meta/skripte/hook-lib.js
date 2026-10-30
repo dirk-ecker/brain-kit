@@ -65,7 +65,11 @@ function classify(filePath, project) {
 // Gibt das fertige { hookSpecificOutput: {...} }-Objekt zurück, oder null, wenn kein Projekt erkannt wurde.
 function baueStart(cwd, sitzungId, log) {
   const p = projectOf(cwd);
-  if (!p) return null;
+  if (!p) {
+    // Zeigt projektOrdner ins Leere (Profil- oder Pfadwechsel), erkennt das Brain kein Projekt mehr und sichert nichts brauchbar: sichtbar machen.
+    if (!fs.existsSync(PROJECTS)) return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `Brain-Konfiguration: projektOrdner "${PROJECTS}" existiert nicht, daher erkennt der Vault kein Projekt (kein Startkontext, Sitzungen werden nicht verdichtet). projektOrdner in ${path.join(VAULT, '_meta', 'brain.config.json')} korrigieren.` } };
+    return null;
+  }
   const base = path.join(VAULT, 'projekte', p.vault);
   const suche = path.join(VAULT, '_meta', 'skripte', 'vault-suche.js');
   const parts = [`Wissens-Vault (${VAULT}), Projekt "${p.vault}". Vor Entscheidungen gezielt suchen: node ${suche} <begriff> (oder --gueltig). Entscheidungen und Erkenntnisse sofort als Notiz festhalten. generiert/ nicht lesen.`];
