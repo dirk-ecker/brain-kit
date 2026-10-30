@@ -435,6 +435,35 @@ test('Arbeitsweise-Review: modellbasierte Fassung über reviewModus, geschwärzt
   } finally { aufraeumen(env); }
 });
 
+test('Arbeitsweise-Review (regelbasiert): Vorschlagsliste mit Automatik-Notizen läuft ohne Fehler durch', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    fs.appendFileSync(path.join(env.vault, '_meta', 'logs', 'automation.log.jsonl'), JSON.stringify({ ts: new Date().toISOString(), quelle: 'verdichten', event: 'verdichten_batch', projekt: 'demo', neueNotizen: ['projekte/demo/erkenntnisse/x.md'] }) + '\n');
+    const r = skript(env, 'arbeitsweise-review.js', ['--force'], { env: { ...process.env, USERPROFILE: env.wurzel, HOME: env.wurzel } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(!/is not defined/.test(r.stderr), r.stderr);
+    const log = fs.readFileSync(path.join(env.vault, '_meta', 'logs', 'automation.log.jsonl'), 'utf8');
+    assert.ok(!log.includes('review_fehler'), log);
+    const st = JSON.parse(fs.readFileSync(path.join(env.vault, '_meta', 'state', 'arbeitsweise.json'), 'utf8'));
+    assert.ok(st.notiz, 'Review-Notiz erzeugt');
+    assert.match(fs.readFileSync(st.notiz, 'utf8'), /erzeugt: automatisch/);
+  } finally { aufraeumen(env); }
+});
+
+test('Arbeitsweise-Review: ein Skriptfehler wird für den Start-Hook gemerkt', () => {
+  const env = umgebung();
+  try {
+    installieren(env);
+    fs.rmSync(path.join(env.vault, 'projekte'), { recursive: true, force: true });
+    const r = skript(env, 'arbeitsweise-review.js', ['--force'], { env: { ...process.env, USERPROFILE: env.wurzel, HOME: env.wurzel } });
+    assert.equal(r.status, 0);
+    const fe = JSON.parse(fs.readFileSync(path.join(env.vault, '_meta', 'state', 'hook-fehler.json'), 'utf8'));
+    assert.equal(fe.gemeldet, false);
+    assert.match(fe.meldung, /^arbeitsweise-review:/);
+  } finally { aufraeumen(env); }
+});
+
 test('Diagnose läuft durch', () => {
   const env = umgebung();
   try {

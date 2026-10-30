@@ -30,6 +30,7 @@ if (reviewModus === 'modell') {
 // Nur eindeutige Korrekturformeln: das breite Hook-Muster (KORREKTUR) trifft auch Funktionswünsche wie „immer speichern“ und taugt nur als Erinnerung.
 const STARK = /ich hatte (doch )?gesagt|ich meinte|ich wollte (das |die |den )?(doch )?nicht|wollte ich nicht|nicht (mehr )?fragen|das habe ich (doch )?(schon )?gesagt|so nicht|(künftig|ab jetzt|ab sofort|niemals|grundsätzlich)|ohne (das )?ich (nochmal |wieder )?gefragt/i;
 
+const BT = '`';
 const MIN_TREFFER = 3, MIN_AUTO_NOTIZEN = 5, MIN_ABSTAND_TAGE = 7, STANDARD_TAGE = 14, MAX_LISTE = 15, MIN_REGEL_TREFFER = 3;
 const LOG = path.join(VAULT, '_meta', 'logs', 'automation.log.jsonl');
 const LAUF = path.join(VAULT, '_meta', 'state', 'arbeitsweise-lauf.json');
@@ -167,4 +168,12 @@ function main() {
   } finally { freigeben(); }
 }
 
-try { main(); } catch (err) { log('review_fehler', { meldung: String(err && err.stack || err) }); console.error(String(err)); }
+// Ein Fehler steht sonst nur im Log (so blieb „BT is not defined“ drei Wochen unbemerkt): derselbe Zustand wie bei Hook-Fehlern,
+// der Start-Hook meldet ihn einmal.
+function merkeFehler(meldung) {
+  const datei = path.join(VAULT, '_meta', 'state', 'hook-fehler.json');
+  let alt = {}; try { alt = JSON.parse(fs.readFileSync(datei, 'utf8')); } catch { /* erster Fehler */ }
+  try { schreibeAtomar(datei, JSON.stringify({ ts: new Date().toISOString(), meldung: ('arbeitsweise-review: ' + meldung).slice(0, 200), anzahl: (alt.anzahl || 0) + 1, gemeldet: false }, null, 2)); } catch { /* Melden darf nie stören */ }
+}
+
+try { main(); } catch (err) { log('review_fehler', { meldung: String(err && err.stack || err) }); merkeFehler(String(err && err.message || err)); console.error(String(err)); }
