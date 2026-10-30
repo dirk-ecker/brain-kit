@@ -14,6 +14,7 @@
 // Regeln:
 //   - Repo eines Vault-Projekts: Ordner unter projektOrdner (brain.config.json), dessen Vault-Name dem Projekt entspricht und der ein .git hat.
 //   - Zustand: _meta/state/kuration.json {projekt: {commit, ts}}. Ohne Eintrag gilt der aktuelle Commit als Ausgangsstand (nichts fällig).
+//   - Gezählt werden nur Commits des Git-Nutzers (user.name) des Repos; fremde Team-Merges nicht (kurationNurEigene=false: alle).
 //   - Fällig: mindestens FAELLIG_COMMITS neue Commits, oder mindestens ein neuer Commit und die Markierung ist älter als FAELLIG_TAGE.
 //   - Der Start-Hook liest kuration-faellig.md (Zeilen "| <projekt> |") und weist hin; ausgewertet wird nur auf Wunsch
 //     (git log, repo-stand.md lesen, Vault-Notizen pflegen, danach --mark).
@@ -170,14 +171,17 @@ function main() {
       if (!state[p]) { state[p] = { commit: head, ts: new Date().toISOString() }; log('kuration_ausgangsstand', { projekt: p, commit: head.slice(0, 8) }); }
       else {
         const basis = state[p].commit;
-        const anzahl = git(repo.pfad, 'rev-list', '--count', `${basis}..HEAD`);
+        // Fremde Team-Merges (Squash-PRs anderer) enthalten kein eigenes Wissen und zählen nicht für die Fälligkeit (brain.config.json: kurationNurEigene=false schaltet das ab).
+        const nurEigene = config.kurationNurEigene !== false, eigener = nurEigene && git(repo.pfad, 'config', 'user.name');
+        const autor = eigener ? [`--author=${eigener}`] : [];
+        const anzahl = git(repo.pfad, 'rev-list', '--count', ...autor, `${basis}..HEAD`);
         if (anzahl === null) log('kuration_basis_unbekannt', { projekt: p, commit: basis.slice(0, 8) }); // z. B. nach Rebase
         else if (Number(anzahl)) {
           const neu = Number(anzahl);
           const tage = Math.floor((jetzt - Date.parse(state[p].ts)) / 86400000);
           seit = { neu, basis, ts: state[p].ts, tage,
             stat: (git(repo.pfad, 'diff', '--shortstat', `${basis}..HEAD`) || '').trim(),
-            zeilen: (git(repo.pfad, 'log', `${basis}..HEAD`, '--format=- %cs %h %s', `-n${MAX_ZEILEN}`) || '').split('\n').filter(Boolean) };
+            zeilen: (git(repo.pfad, 'log', ...autor, `${basis}..HEAD`, '--format=- %cs %h %s', `-n${MAX_ZEILEN}`) || '').split('\n').filter(Boolean) };
           if (neu >= FAELLIG_COMMITS || tage >= FAELLIG_TAGE) { istFaellig = true; faellig.push({ projekt: p, neu, letzter: git(repo.pfad, 'log', '-1', '--format=%cs') || '', tage }); }
         }
       }

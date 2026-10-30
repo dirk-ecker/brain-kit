@@ -46,6 +46,7 @@ const stripReminders = t => t
 // Schwärzt Geheimnisse und Kontaktdaten, bevor etwas im Vault landet. Lieber zu viel als zu wenig:
 // ein geschwärzter Bezeichner kostet nichts, ein Key im Vault schon.
 const GESCHWAERZT = '[geschwärzt]';
+const LANG_ZUFALL = /\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*[a-z])[A-Za-z0-9_-]{32,}\b/g;
 const REDACT = [
   /\bcfut_[A-Za-z0-9_-]{20,}/g,                                   // Cloudflare-Nutzertoken
   /\bAIza[0-9A-Za-z_-]{30,}/g, /\bAQ\.[A-Za-z0-9_.-]{20,}/g,      // Google-/Gemini-Keys
@@ -53,9 +54,9 @@ const REDACT = [
   /\bsk-[A-Za-z0-9_-]{20,}/g, /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(\.[A-Za-z0-9_-]+)?/g, // JWT
   /\b[a-f0-9]{32}\b/g,                                            // 32-Hex (API-Keys, Account-IDs)
-  /\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*[a-z])[A-Za-z0-9_-]{32,}\b/g, // lange Zufallszeichenketten
+  LANG_ZUFALL,                                                    // lange Zufallszeichenketten
   /[A-Za-z0-9._%+-]+@(?!anthropic\.com\b)[A-Za-z0-9.-]+\.[a-z]{2,}/g, // E-Mail (außer Co-Authored-By)
-  /(?:\+49|\b0)[1-9]\d{1,4}[ \/-]?\d{3,}[ -]?\d{0,6}\b/g,         // Telefonnummern
+  /(?:\+49|(?<![\d,.])\b0)[1-9]\d{1,4}[ \/-]?\d{3,}[ -]?\d{0,6}\b/g,         // Telefonnummern
   /[A-ZÄÖÜ][\wäöüß.-]*(?:\s[A-ZÄÖÜ]?[\wäöüß.-]+)?\s\d{1,4}[a-z]?,?\s+\d{5}\s+[A-ZÄÖÜ][\wäöüß-]+/g, // Postanschrift „Straße 1, 12345 Ort“
 ];
 function redact(t) {
@@ -78,6 +79,8 @@ function findeGeheimnisse(text) {
     for (const m of text.matchAll(new RegExp(re.source, re.flags))) {
       // Kurze Ziffernfolgen sind meist Commit-Hashes, Farbwerte oder Beträge, keine Telefonnummern.
       if (/^[\d\s\/+-]+$/.test(m[0]) && m[0].replace(/\D/g, '').length < 9) continue;
+      // shortcut: Bezeichner mit _ oder - (Feld-IDs, Dateinamen) sind keine Zufallstokens; echte Keys haben eigene Muster oben. Nur der Prüfbericht ist so nachsichtig, redact() schwärzt weiter.
+      if (re === LANG_ZUFALL && /[_-]/.test(m[0])) continue;
       funde.push(kuerzen(m[0]));
     }
   }

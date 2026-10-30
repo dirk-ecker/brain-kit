@@ -295,6 +295,7 @@ test('Repo-Stand: Struktur, Doku, Abhängigkeiten; fällig erst ab 5 neuen Commi
     fs.writeFileSync(path.join(repo, 'README.md'), '# Demo');
     const g = (...a) => assert.equal(spawnSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' }).status, 0);
     spawnSync('git', ['init', '-q', repo]);
+    spawnSync('git', ['-C', repo, 'config', 'user.name', 't']); // sync-projekte zählt nur Commits dieses Nutzers
     g('add', '-A'); g('commit', '-qm', 'start');
     fs.mkdirSync(path.join(env.vault, 'projekte', 'demo'), { recursive: true });
     const stand = path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-stand.md');
@@ -311,7 +312,12 @@ test('Repo-Stand: Struktur, Doku, Abhängigkeiten; fällig erst ab 5 neuen Commi
     assert.ok(!fs.existsSync(path.join(env.vault, 'projekte', 'demo', 'generiert', 'repo-docs')), 'Spiegel ist standardmäßig aus');
     assert.ok(!/\| demo \|/.test(fs.readFileSync(faellig, 'utf8')), 'Ausgangsstand: nichts fällig');
 
-    for (let i = 0; i < 5; i++) { fs.writeFileSync(path.join(repo, 'src', 'f' + i + '.txt'), String(i)); g('add', '-A'); g('commit', '-qm', 'c' + i); }
+    for (let i = 0; i < 4; i++) { fs.writeFileSync(path.join(repo, 'src', 'f' + i + '.txt'), String(i)); g('add', '-A'); g('commit', '-qm', 'c' + i); }
+    fs.writeFileSync(path.join(repo, 'src', 'fremd.txt'), 'x'); g('add', '-A');
+    spawnSync('git', ['-C', repo, '-c', 'user.name=anderer', '-c', 'user.email=a@a', 'commit', '-qm', 'fremd']);
+    r = skript(env, 'sync-projekte.js');
+    assert.ok(!/\| demo \|/.test(fs.readFileSync(faellig, 'utf8')), 'ein fremder Commit zählt nicht: erst 4 eigene');
+    fs.writeFileSync(path.join(repo, 'src', 'f4.txt'), '4'); g('add', '-A'); g('commit', '-qm', 'c4');
     r = skript(env, 'sync-projekte.js');
     assert.match(fs.readFileSync(faellig, 'utf8'), /\| demo \| 5 \|/);
     assert.match(fs.readFileSync(stand, 'utf8'), /Seit der letzten Kuration/);
